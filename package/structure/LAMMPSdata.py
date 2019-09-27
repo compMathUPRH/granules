@@ -887,4 +887,4 @@ if __name__ == "__main__":  # tests
     ch.readFiles("2rvd_autopsf.pdb", "2rvd_autopsf.psf", "par_all36_prot.prm")
 
     l.loadNAMDdata(ch)
-    l.writeConf("lammps.data")
+    l.writeConf("2rvd.data")
