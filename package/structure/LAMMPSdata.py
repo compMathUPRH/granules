@@ -517,7 +517,6 @@ class AngleCoeffs(ForceFieldSection):
         angles['atuple'] = list(zip(angles.Atom1, angles.Atom2, angles.Atom3))
         angles.drop(columns=['ID', 'Atom1', 'Atom2', 'Atom3'], inplace=True)
         angles.drop_duplicates(inplace=True)
-        #print(angles)
 
         prmFF = charmm.prm.angles.getCoeffs()
 
