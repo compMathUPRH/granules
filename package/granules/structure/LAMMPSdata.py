@@ -806,6 +806,40 @@ class LammpsData:
 
         return np.sum(K * (bij-b0)**2)
 
+    def charmmAngleEnergy(self):
+        ''' Computes CHARMM angle energy.
+            Formula: sum K * (aij - a0)**2
+        '''
+        bi = self.angles.set_index('Atom1').join(
+                self.atoms.set_index('aID')
+             )[['anID','x', 'y', 'z']].set_index('anID')
+
+        bj = self.angles.set_index('Atom2').join(
+                self.atoms.set_index('aID')
+             )[['anID','x', 'y', 'z']].set_index('anID')
+
+        bk = self.angles.set_index('Atom3').join(
+                self.atoms.set_index('aID')
+             )[['anID','x', 'y', 'z']].set_index('anID')
+
+        # compute angles
+        l1 = bi - bj
+        l2 = bk - bj
+
+        norm1 = np.sqrt(np.square(l1).sum(axis=1))
+        norm2 = np.sqrt(np.square(l1).sum(axis=1))
+        dot = l1.x * l2.x + l1.y * l2.y + l1.z * l2.z
+        angles = np.arccos(dot / (norm1 * norm2))
+
+        coeffs = self.angles[['anID','anType']].set_index('anType').join(
+                        self.angleCoeffs.set_index('anType')
+                 ).reset_index(drop=True)
+
+        K = coeffs[['anID','Ktheta']].set_index('anID').Ktheta
+        a0 = np.radians(coeffs[['anID','Theta0']].set_index('anID').Theta0)
+
+        return np.sum(K * (angles-a0)**2)
+
 
     def loadNAMDdata(self, charmm):
         ''' loads data from NAMDdata object into self.'''
