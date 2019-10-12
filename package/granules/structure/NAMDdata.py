@@ -415,7 +415,9 @@ class PRM:
                 arch.close()
                 return data
 
-            #linea = arch.readline().split("!")[0].strip()
+            if linea[-1] == '-': # skips continuation line
+                linea = arch.readline().split("!")[0].strip()
+
             for linea in arch:
                 linea = linea.split("!")[0].strip()
                 if len(linea) == 0 or linea[0] == '*': continue  # skip comment
@@ -521,8 +523,12 @@ class PRM:
 
         def readFile(self, filename):
             data=PRM.readSection(filename, "ANGLES")
-            if data != [] and len(data[0]) == 5:  # add two columns to data
-                data = [a + [np.nan, np.nan] for a in data]
+
+            if data != []:
+                for row in data:
+                    if len(row) == 5:  # add two columns to data
+                        row +=  [np.nan, np.nan]
+                        
             newTable = PRM.ANGLES(data=data)  
             super().__init__(data=self.append(newTable, ignore_index=True).astype({
                      'Ktheta' :float,
