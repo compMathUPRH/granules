@@ -133,9 +133,9 @@ class ForceFieldSection(LammpsBodySection):
    
 class AtomsDF(AtomPropertySection):
     def __init__(self,data=None, dtype=None, copy=False):
-        dtypes = {'aID':[0], 'Mol_ID':[0], 'Type':[0], 'Q':[0.0], 
+        dtypes = {'aID':[0], 'Mol_ID':[0], 'aType':[0], 'Q':[0.0], 
                   'X':[0.0], 'Y':[0.0], 'Z':[0.0], 'Nx':[0], 'Ny':[0], 'Nz':[0]}   
-        super(AtomsDF, self).__init__(data=dtypes, copy=copy, columns=['aID', 'Mol_ID', 'Type', 'Q', 
+        super(AtomsDF, self).__init__(data=dtypes, copy=copy, columns=['aID', 'Mol_ID', 'aType', 'Q', 
                   'X', 'Y', 'Z', 'Nx', 'Ny', 'Nz'])
         super(AtomsDF, self).__init__(self.drop([0]))
 
@@ -156,7 +156,7 @@ class AtomsDF(AtomPropertySection):
         sel_psf     = charmm.psf.atoms[['ID', 'Type', 'Charge']].set_index('ID')
         sel_pdb     = charmm.pdb[['ID','x','y','z']].set_index('ID')
         sel         = sel_pdb.join(sel_psf)
-        sel['Type'] = sel_psf['Type'].map(charmmTypeToInt)
+        sel['aType'] = sel_psf['Type'].map(charmmTypeToInt)
         sel.reset_index(inplace=True)
         sel         .rename(columns={"Charge":"Q",'ID':'aID'}, inplace=True)
 
@@ -168,13 +168,13 @@ class AtomsDF(AtomPropertySection):
         sel['ID']     = np.arange(1, len(sel)+1)
 
         # rearrange columns
-        sel = sel[['aID', 'Mol_ID', 'Type', 'Q', 'x', 'y', 'z', 'Nx', 'Ny', 'Nz']]
+        sel = sel[['aID', 'Mol_ID', 'aType', 'Q', 'x', 'y', 'z', 'Nx', 'Ny', 'Nz']]
 
         #sel.reset_index(inplace=True)
         #print("sel = ", sel.dtypes)
         super(AtomsDF, self).__init__(sel.astype({
                      'Mol_ID' :int,
-                     'Type' :int,
+                     'aType' :int,
                      'Q' :float,
                      'x' :float,
                      'y' :float,
@@ -189,7 +189,7 @@ class AtomsDF(AtomPropertySection):
 class MassesDF(AtomPropertySection):
     def __init__(self,data=None, dtype=None, copy=False):
         if data  is None:
-            dtypes = {'aID':[0], 'Mass':[0.0]}
+            dtypes = {'aType':[0], 'Mass':[0.0]}
             super(MassesDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
             super(MassesDF, self).__init__(self.drop([0]))
  
@@ -207,11 +207,11 @@ class MassesDF(AtomPropertySection):
 
         # extract info from charmm and LAMMPS
         sel_psf  = psf_atoms[['ID', 'Mass']].set_index('ID')
-        sel_self = atoms[['aID', 'Type']].set_index('aID').copy()
+        sel_self = atoms[['aID', 'aType']].set_index('aID').copy()
         sel      = sel_self.join(sel_psf).drop_duplicates().reset_index()
 
         # rename columns
-        sel      .drop(columns='Type', inplace=True)
+        sel      .drop(columns='aID', inplace=True)
         #sel      .rename(columns={"Type":"mID"}, inplace=True)
         #print(sel.dtypes)
 
@@ -480,7 +480,7 @@ class PairCoeffs(ForceFieldSection):
 
         # substitute atoms numbers with charmm atom types
         nonbonded       = mass.copy()
-        nonbonded['types'] = nonbonded.aID.map(psf_types)
+        nonbonded['types'] = nonbonded.aType.map(psf_types)
         nonbonded.drop(columns=['Mass'], inplace=True)
         #print(nonbonded)
 
@@ -493,13 +493,13 @@ class PairCoeffs(ForceFieldSection):
         nonbonded['epsilon1_4'] = nonbonded.types.map(prmFF.epsilon.to_dict())
         nonbonded['sigma1_4'] = nonbonded.types.map(prmFF.Rmin2.to_dict())
         nonbonded.drop(columns=['types'], inplace=True)
-        #print(nonbonded)
 
-        nonbonded.rename(columns={'ID':'aType'}, inplace=True)
+        nonbonded.rename(columns={'aID':'aType'}, inplace=True)
+        #print(nonbonded)
 
         super(PairCoeffs, self).__init__(nonbonded)
         #print("\nPairCoeffs Nans:\n",nonbonded.isna().sum())
-        #print(self)
+        #print(self.dtypes)
 
 
 
@@ -783,6 +783,62 @@ class LammpsData:
         self.endBondTorsionCoeffs   = ForceFieldSection()
         self.angleAngleTorsionCoeffs= ForceFieldSection()
         
+
+    def charmmNonBondEnergy(self):
+        ''' Computes CHARMM bond energy.
+            Formula: sum K * (bij - b0)**2
+        '''
+
+        '''
+        # generate all pairs of atoms 
+        atomIds = self.atoms[['aID']].copy()
+        atomIds['key'] = np.ones(len(atomIds))
+        atomIds = pd.merge(atomIds, atomIds, on='key')[['aID_x', 'aID_y']]
+        atomIds['nbID'] = np.arange(len(atomIds))
+        '''
+        print(self.pairCoeffs.dtypes)
+        coeffs = self.atoms[['aID', 'aType', 'x', 'y', 'z']].set_index('aType').join(
+                        self.pairCoeffs.set_index('aType')
+                 )
+
+        print(coeffs)
+
+        '''
+        for index, ij in  atomIds.iterrows():
+            bi = self.atoms.loc[self.atoms.aID == ij.aID_x][['x', 'y', 'z']].values[0][0]
+            bj = self.atoms.loc[self.atoms.aID == ij.aID_y][['x', 'y', 'z']].reset_index(drop=True)
+            bij = np.sqrt(np.sum((bi - bj) ** 2, axis='columns')).values  # bonds lengths
+            if bij < 12.0:
+                print(ij.nbID, bij[0], '*')
+            #else:
+                #print(ij.nbID, ij.aID_x, ij.aID_y, bij)
+        '''
+
+
+        '''
+        data = []
+        for ij in atomIds:
+            rij =             
+        bi = atomIds.set_index('aID_x').join(
+                self.atoms[['aID', 'x', 'y', 'z']].set_index('aID')
+             )[['nbID_y', 'x', 'y', 'z']].rename(columns={'nbID_y':'nbID'}).set_index('nbID')
+
+        bj = atomIds.set_index('aID_y').join(
+                self.atoms[['aID', 'x', 'y', 'z']].set_index('aID')
+             )[['nbID_y', 'x', 'y', 'z']].rename(columns={'nbID_y':'nbID'}).set_index('nbID')
+        print(bi - bj)
+
+
+        bij = np.sqrt(np.sum((bi - bj) ** 2, axis='columns'))  # bonds lengths
+
+        coeffs = self.bonds[['bID','bType']].set_index('bType').join(
+                        self.bondCoeffs.set_index('bType')
+                 ).reset_index(drop=True)
+        K = coeffs[['bID','Spring_Constant']].set_index('bID').Spring_Constant
+        b0 = coeffs[['bID','Eq_Length']].set_index('bID').Eq_Length
+
+        return np.sum(K * (bij-b0)**2)
+        '''
 
     def charmmBondEnergy(self):
         ''' Computes CHARMM bond energy.
