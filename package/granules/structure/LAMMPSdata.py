@@ -786,59 +786,50 @@ class LammpsData:
 
     def charmmNonBondEnergy(self):
         ''' Computes CHARMM bond energy.
-            Formula: sum K * (bij - b0)**2
+            Formula: Eps,i,j[(Rmin,i,j/ri,j)**12 - 2(Rmin,i,j/ri,j)**6]
+                    Eps,i,j = sqrt(eps,i * eps,j)
+                    Rmin,i,j = Rmin/2,i + Rmin/2,j
         '''
 
-        '''
-        # generate all pairs of atoms 
+        NONB_CUTOFF = 12.0
+
+        # generate all pairs of atoms IDs
         atomIds = self.atoms[['aID']].copy()
         atomIds['key'] = np.ones(len(atomIds))
         atomIds = pd.merge(atomIds, atomIds, on='key')[['aID_x', 'aID_y']]
-        atomIds['nbID'] = np.arange(len(atomIds))
-        '''
-        print(self.pairCoeffs.dtypes)
-        coeffs = self.atoms[['aID', 'aType', 'x', 'y', 'z']].set_index('aType').join(
+        atomIds = atomIds[atomIds['aID_x'] < atomIds['aID_y']]
+
+        # compute pairwise distances
+        from scipy.spatial.distance import pdist
+        atomIds['rij'] = pdist(self.atoms[['x', 'y', 'z']].values)
+        atomIds = atomIds[atomIds['rij'] < NONB_CUTOFF]
+
+        # get atom types
+        atomIds = atomIds.set_index('aID_x').join(self.atoms[['aID', 'aType']].set_index('aID')).reset_index(drop=True)
+        atomIds.rename(columns={'aType':'aiType'}, inplace=True)
+        atomIds = atomIds.set_index('aID_y').join(self.atoms[['aID', 'aType']].set_index('aID')).reset_index(drop=True)
+        atomIds.rename(columns={'aType':'ajType'}, inplace=True)
+
+        # get epsilons and sigmas for each atom type
+        atomIds = atomIds.set_index('aiType').join(
                         self.pairCoeffs.set_index('aType')
-                 )
-
-        print(coeffs)
-
-        '''
-        for index, ij in  atomIds.iterrows():
-            bi = self.atoms.loc[self.atoms.aID == ij.aID_x][['x', 'y', 'z']].values[0][0]
-            bj = self.atoms.loc[self.atoms.aID == ij.aID_y][['x', 'y', 'z']].reset_index(drop=True)
-            bij = np.sqrt(np.sum((bi - bj) ** 2, axis='columns')).values  # bonds lengths
-            if bij < 12.0:
-                print(ij.nbID, bij[0], '*')
-            #else:
-                #print(ij.nbID, ij.aID_x, ij.aID_y, bij)
-        '''
-
-
-        '''
-        data = []
-        for ij in atomIds:
-            rij =             
-        bi = atomIds.set_index('aID_x').join(
-                self.atoms[['aID', 'x', 'y', 'z']].set_index('aID')
-             )[['nbID_y', 'x', 'y', 'z']].rename(columns={'nbID_y':'nbID'}).set_index('nbID')
-
-        bj = atomIds.set_index('aID_y').join(
-                self.atoms[['aID', 'x', 'y', 'z']].set_index('aID')
-             )[['nbID_y', 'x', 'y', 'z']].rename(columns={'nbID_y':'nbID'}).set_index('nbID')
-        print(bi - bj)
-
-
-        bij = np.sqrt(np.sum((bi - bj) ** 2, axis='columns'))  # bonds lengths
-
-        coeffs = self.bonds[['bID','bType']].set_index('bType').join(
-                        self.bondCoeffs.set_index('bType')
                  ).reset_index(drop=True)
-        K = coeffs[['bID','Spring_Constant']].set_index('bID').Spring_Constant
-        b0 = coeffs[['bID','Eq_Length']].set_index('bID').Eq_Length
+        atomIds.drop(columns=['epsilon1_4', 'sigma1_4'], inplace=True)
+        atomIds.rename(columns={'epsilon':'epsilon_i', 'sigma':'sigma_i'}, inplace=True)
+        atomIds = atomIds.set_index('ajType').join(
+                        self.pairCoeffs.set_index('aType')
+                 ).reset_index(drop=True).drop(columns=['epsilon1_4', 'sigma1_4'])
+        atomIds.rename(columns={'epsilon':'epsilon_j', 'sigma':'sigma_j'}, inplace=True)
 
-        return np.sum(K * (bij-b0)**2)
-        '''
+        # compute epsilon and sigma
+        atomIds['epsilon'] = np.sqrt(atomIds.epsilon_i * atomIds.epsilon_j)
+        atomIds['sigma'] = atomIds.sigma_i + atomIds.sigma_j
+        atomIds.drop(columns=['epsilon_i', 'epsilon_j', 'sigma_i', 'sigma_j'], inplace=True)
+
+        # return LJ
+        atomIds.rij = atomIds.sigma/atomIds.rij
+        return np.sum(atomIds.epsilon * (atomIds.rij**12 - atomIds.rij**6))
+
 
     def charmmBondEnergy(self):
         ''' Computes CHARMM bond energy.
