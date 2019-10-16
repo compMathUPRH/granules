@@ -164,8 +164,12 @@ class PSF:
         #print("linea encontrada: ", linea)
 
 
-        #Obtener la cantidad de elementos 
-        cantidad = int(linea[:9].strip())
+        #Obtener la cantidad de elementos, cae a 0 si no encontró la sección 
+        try:
+            cantidad = int(linea[:9].strip())
+        except:
+            cantidad = 0    
+        
         if cantidad % itemsPerLine == 0: cantidad = cantidad // itemsPerLine
         else: cantidad = cantidad // itemsPerLine + 1
         #print("cantidad " , cantidad)

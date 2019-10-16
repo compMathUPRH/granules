@@ -154,10 +154,15 @@ class AtomsDF(AtomPropertySection):
 
         # extract info from charmm
         sel_psf     = charmm.psf.atoms[['ID', 'Type', 'Charge']].set_index('ID')
+        print(sel_psf)
         sel_pdb     = charmm.pdb[['ID','x','y','z']].set_index('ID')
+        print(sel_pdb)
         sel         = sel_pdb.join(sel_psf)
+        print(sel)        
         sel['aType'] = sel_psf['Type'].map(charmmTypeToInt)
+        print(sel)
         sel.reset_index(inplace=True)
+        print(sel)        
         sel         .rename(columns={"Charge":"Q",'ID':'aID'}, inplace=True)
 
         # add remining columns
@@ -166,10 +171,10 @@ class AtomsDF(AtomPropertySection):
         sel['Ny']     = np.zeros((len(sel), 1))
         sel['Nz']     = np.zeros((len(sel), 1))
         sel['ID']     = np.arange(1, len(sel)+1)
-
+        #print(sel[np.isfinite(sel['aType'])])
         # rearrange columns
         sel = sel[['aID', 'Mol_ID', 'aType', 'Q', 'x', 'y', 'z', 'Nx', 'Ny', 'Nz']]
-
+        
         #sel.reset_index(inplace=True)
         #print("sel = ", sel.dtypes)
         super(AtomsDF, self).__init__(sel.astype({
