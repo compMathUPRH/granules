@@ -164,8 +164,12 @@ class PSF:
         #print("linea encontrada: ", linea)
 
 
-        #Obtener la cantidad de elementos 
-        cantidad = int(linea[:9].strip())
+        #Obtener la cantidad de elementos, cae a 0 si no encontró la sección 
+        try:
+            cantidad = int(linea[:9].strip())
+        except:
+            cantidad = 0    
+        
         if cantidad % itemsPerLine == 0: cantidad = cantidad // itemsPerLine
         else: cantidad = cantidad // itemsPerLine + 1
         #print("cantidad " , cantidad)
@@ -270,9 +274,12 @@ class PSF:
             else:
                 newTable = pd.DataFrame(data).dropna()
                 pair1 = newTable[[0,1,2,3]]
-                pair2 = newTable[[4,5,6,7]]
                 pair1.columns=['atom1','atom2','atom3','atom4']
-                pair2.columns=['atom1','atom2','atom3','atom4']
+                try:
+                    pair2 = newTable[[4,5,6,7]]
+                    pair2.columns=['atom1','atom2','atom3','atom4']
+                except:
+                    pair2 = pd.DataFrame()
                 super().__init__(data=self.append(pair1, ignore_index=True)
 		                                  .append(pair2, ignore_index=True).astype({
 		                 'atom1'     :int,
@@ -301,9 +308,12 @@ class PSF:
             else:
                 newTable = pd.DataFrame(data).dropna()
                 pair1 = newTable[[0,1,2,3]]
-                pair2 = newTable[[4,5,6,7]]
                 pair1.columns=['atom1','atom2','atom3','atom4']
-                pair2.columns=['atom1','atom2','atom3','atom4']
+                try:
+                    pair2 = newTable[[4,5,6,7]]
+                    pair2.columns=['atom1','atom2','atom3','atom4']
+                except:
+                    pair2 = pd.DataFrame()
                 super().__init__(data=self.append(pair1, ignore_index=True)
                                           .append(pair2, ignore_index=True).astype({
                          'atom1'     :int,
