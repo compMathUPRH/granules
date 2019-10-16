@@ -785,30 +785,42 @@ class LammpsData:
         
 
     def charmmNonBondEnergy(self):
-        ''' Computes CHARMM bond energy.
+        ''' Computes CHARMM Lennard-Jones energy.
             Formula: Eps,i,j[(Rmin,i,j/ri,j)**12 - 2(Rmin,i,j/ri,j)**6]
                     Eps,i,j = sqrt(eps,i * eps,j)
                     Rmin,i,j = Rmin/2,i + Rmin/2,j
-        '''
 
-        NONB_CUTOFF = 12.0
+            Computes CHARMM Coulumb energy.
+            Formula: qi qj/rij / epsilon_0
+
+            returns (L-J, Coulomb)
+        '''
+        from scipy.constants import epsilon_0, physical_constants
+
+        NONB_CUTOFF = 13.0
 
         # generate all pairs of atoms IDs
         atomIds = self.atoms[['aID']].copy()
         atomIds['key'] = np.ones(len(atomIds))
         atomIds = pd.merge(atomIds, atomIds, on='key')[['aID_x', 'aID_y']]
         atomIds = atomIds[atomIds['aID_x'] < atomIds['aID_y']]
+        # remove bonded atoms
+        atomIds['nbID'] = np.arange(len(atomIds))
 
         # compute pairwise distances
         from scipy.spatial.distance import pdist
-        atomIds['rij'] = pdist(self.atoms[['x', 'y', 'z']].values)
+        atomIds['rij'] = pdist(self.atoms.set_index('aID')[['x', 'y', 'z']].values)
         atomIds = atomIds[atomIds['rij'] < NONB_CUTOFF]
 
-        # get atom types
-        atomIds = atomIds.set_index('aID_x').join(self.atoms[['aID', 'aType']].set_index('aID')).reset_index(drop=True)
+        # get atom types and charges
+        atomIds = atomIds.set_index('aID_x').join(self.atoms[['aID', 'Q']].set_index('aID'))
+        atomIds.rename(columns={'Q':'qi'}, inplace=True)
+        atomIds = atomIds.join(self.atoms[['aID', 'aType']].set_index('aID')).reset_index(drop=True)
         atomIds.rename(columns={'aType':'aiType'}, inplace=True)
-        atomIds = atomIds.set_index('aID_y').join(self.atoms[['aID', 'aType']].set_index('aID')).reset_index(drop=True)
-        atomIds.rename(columns={'aType':'ajType'}, inplace=True)
+        atomIds = atomIds.set_index('aID_y').join(self.atoms[['aID', 'Q']].set_index('aID'))
+        atomIds = atomIds.join(self.atoms[['aID', 'aType']].set_index('aID')).reset_index(drop=True)
+        atomIds.rename(columns={'aType':'ajType', 'Q':'qj'}, inplace=True)
+        print(atomIds)
 
         # get epsilons and sigmas for each atom type
         atomIds = atomIds.set_index('aiType').join(
@@ -826,9 +838,12 @@ class LammpsData:
         atomIds['sigma'] = atomIds.sigma_i + atomIds.sigma_j
         atomIds.drop(columns=['epsilon_i', 'epsilon_j', 'sigma_i', 'sigma_j'], inplace=True)
 
-        # return LJ
-        atomIds.rij = atomIds.sigma/atomIds.rij
-        return np.sum(atomIds.epsilon * (atomIds.rij**12 - atomIds.rij**6))
+
+        atomIds.set_index('nbID', inplace=True)
+        print(atomIds)
+        # return LJ and Columb
+        atomIds.rij = atomIds.sigma/atomIds.rij / epsilon_0 * physical_constants['electric constant'][0]
+        return np.sum(atomIds.epsilon * (atomIds.rij**12 - atomIds.rij**6)), np.sum(atomIds.qi * atomIds.qj / atomIds.rij)
 
 
     def charmmBondEnergy(self):
@@ -852,6 +867,7 @@ class LammpsData:
         b0 = coeffs[['bID','Eq_Length']].set_index('bID').Eq_Length
 
         return np.sum(K * (bij-b0)**2)
+
 
     def charmmAngleEnergy(self):
         ''' Computes CHARMM angle energy.
