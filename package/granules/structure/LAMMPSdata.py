@@ -892,6 +892,53 @@ class LammpsData:
 
         return np.sum(K * (angles-a0)**2)
 
+    def charmmDihedralsEnergy(self):
+        ''' Computes CHARMM angle energy.
+            Formula: sum K * (1 + cos(n * x - d))
+        '''
+        bi = self.dihedrals.set_index('Atom1').join(
+                self.atoms.set_index('aID')
+             )[['dID','x', 'y', 'z']].set_index('dID')
+
+        bj = self.dihedrals.set_index('Atom2').join(
+                self.atoms.set_index('aID')
+             )[['dID','x', 'y', 'z']].set_index('dID')
+
+        bk = self.dihedrals.set_index('Atom3').join(
+                self.atoms.set_index('aID')
+             )[['dID','x', 'y', 'z']].set_index('dID')
+
+        bl = self.dihedrals.set_index('Atom4').join(
+                self.atoms.set_index('aID')
+             )[['dID','x', 'y', 'z']].set_index('dID')
+
+        # compute equations of planes
+        l1 = bi - bj
+        l2 = bk - bj
+        normals1 = np.cross(l1, l2)
+        normals1 = normals1 / np.linalg.norm(normals1, axis=1)[:, np.newaxis] 
+
+        l1 = bj - bk
+        l2 = bl - bk
+        normals2 = np.cross(l1, l2)
+        normals2 = normals2 / np.linalg.norm(normals2, axis=1)[:, np.newaxis] 
+
+        angles = np.degrees(np.arccos(np.abs(np.einsum('ij,ij->i', normals1, normals2))))
+
+        # get CHARMM constants
+        print(self.dihedrals)
+        coeffs = self.dihedrals[['dID','dType']].set_index('dType').join(
+                        self.dihedralCoeffs.set_index('dType')
+                 ).reset_index(drop=True)
+        K = coeffs[['dID','Kchi']].set_index('dID').Kchi
+        n = coeffs[['dID','n']].set_index('dID').n
+        d = coeffs[['dID','delta']].set_index('dID').delta
+
+
+
+        return np.sum(K * (1 + np.cos(n * angles - d)))
+        '''
+        '''
 
     def loadNAMDdata(self, charmm):
         ''' loads data from NAMDdata object into self.'''
