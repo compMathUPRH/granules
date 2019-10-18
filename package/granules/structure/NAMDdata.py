@@ -128,7 +128,7 @@ class PSF:
         self.cross_terms.readFile(filename)
 
     @staticmethod
-    def readSection(filename, section, itemsPerLine=1):
+    def readSection(filename, section, tupleLength, itemsPerLine):
         ''' reads section 'section' PSF file
 
             Parameter
@@ -153,15 +153,9 @@ class PSF:
         
 
         # find desired section
-        '''
-        linea = arch.readline() 
-        while not '!N'+section in linea: 
-           linea = arch.readline()
-        #print("linea encontrada: ", linea)
-        '''
         for linea in arch:
             if '!N'+section in linea: break
-        #print("linea encontrada: ", linea)
+        #print("\n\n\nlinea encontrada: ", linea)
 
 
         #Obtener la cantidad de elementos, cae a 0 si no encontró la sección 
@@ -170,19 +164,21 @@ class PSF:
         except:
             cantidad = 0    
         
-        if cantidad % itemsPerLine == 0: cantidad = cantidad // itemsPerLine
-        else: cantidad = cantidad // itemsPerLine + 1
-        #print("cantidad " , cantidad)
+        if cantidad % itemsPerLine == 0: cantLineas = cantidad // itemsPerLine
+        else: cantLineas = cantidad // itemsPerLine + 1
+        #print("cantLineas {0}: {1}".format(section,cantLineas))
 
-        for i in range(cantidad):
+        for i in range(cantLineas):
             linea = next(arch)
             #Recoger la informacion mediante su posicion
             info = linea.split()
-
-            #Cada vez anadir nueva informacion a los datos
-            data.append(info)  
+            for j in range(0,len(info), tupleLength):
+                #Cada vez anadir nueva informacion a los datos
+                data.append(info[j:j+tupleLength])  
+            #print(">", info)
 
         arch.close()
+        #print(data)
         return data
 
 
@@ -195,7 +191,7 @@ class PSF:
                         'Type', 'Charge', 'Mass', 'Unused'])
 
         def readFile(self, filename):
-            newTable = PSF.ATOM(data=PSF.readSection(filename, "ATOM"))  
+            newTable = PSF.ATOM(data=PSF.readSection(filename, "ATOM", 9, 1))  
             #print(newTable)
             # set column types and append to existing table
             super().__init__(data=self.append(newTable, ignore_index=True).astype({
@@ -213,20 +209,13 @@ class PSF:
                     'atom1','atom2'])
 
         def readFile(self, filename):
-            data=PSF.readSection(filename, "BOND", itemsPerLine=4)
+            data=PSF.readSection(filename, "BOND", 2, 4)
             newTable = pd.DataFrame(data).dropna()
             pair1 = newTable[[0,1]]
-            pair2 = newTable[[2,3]]
-            pair3 = newTable[[4,5]]
-            pair4 = newTable[[6,7]]
+
             pair1.columns=['atom1','atom2']
-            pair2.columns=['atom1','atom2']
-            pair3.columns=['atom1','atom2']
-            pair4.columns=['atom1','atom2']
-            super().__init__(data=self.append(pair1, ignore_index=True)
-                                      .append(pair2, ignore_index=True)
-                                      .append(pair3, ignore_index=True)
-                                      .append(pair4, ignore_index=True).astype({
+
+            super().__init__(data=self.append(pair1, ignore_index=True).astype({
                      'atom1'     :int,
                      'atom2' :int
                     }))
@@ -239,17 +228,12 @@ class PSF:
                     'atom1','atom2','atom3'])
 
         def readFile(self, filename):
-            data=PSF.readSection(filename, "THETA", itemsPerLine=3)
+            data=PSF.readSection(filename, "THETA", 3,3)
             newTable = pd.DataFrame(data).dropna()
             pair1 = newTable[[0,1,2]]
-            pair2 = newTable[[3,4,5]]
-            pair3 = newTable[[6,7,8]]
             pair1.columns=['atom1','atom2','atom3']
-            pair2.columns=['atom1','atom2','atom3']
-            pair3.columns=['atom1','atom2','atom3']
-            super().__init__(data=self.append(pair1, ignore_index=True)
-                                      .append(pair2, ignore_index=True)
-                                      .append(pair3, ignore_index=True).astype({
+
+            super().__init__(data=self.append(pair1, ignore_index=True).astype({
                      'atom1'     :int,
                      'atom2'     :int,
                      'atom3' :int
@@ -263,7 +247,7 @@ class PSF:
                     'atom1','atom2','atom3','atom4'])
 
         def readFile(self, filename):
-            data=PSF.readSection(filename, "PHI", itemsPerLine=2)
+            data=PSF.readSection(filename, "PHI", 4,2)
             if len(data) == 0:
                 super().__init__(data=self.astype({
                      'atom1'     :int,
@@ -275,13 +259,8 @@ class PSF:
                 newTable = pd.DataFrame(data).dropna()
                 pair1 = newTable[[0,1,2,3]]
                 pair1.columns=['atom1','atom2','atom3','atom4']
-                try:
-                    pair2 = newTable[[4,5,6,7]]
-                    pair2.columns=['atom1','atom2','atom3','atom4']
-                except:
-                    pair2 = pd.DataFrame()
-                super().__init__(data=self.append(pair1, ignore_index=True)
-		                                  .append(pair2, ignore_index=True).astype({
+
+                super().__init__(data=self.append(pair1, ignore_index=True).astype({
 		                 'atom1'     :int,
 		                 'atom2'     :int,
 		                 'atom3'     :int,
@@ -297,7 +276,7 @@ class PSF:
                     'atom1','atom2','atom3','atom4'])
 
         def readFile(self, filename):
-            data=PSF.readSection(filename, "IMPHI", itemsPerLine=2)
+            data=PSF.readSection(filename, "IMPHI", 4,2)
             if len(data) == 0:
                 super().__init__(data=self.astype({
                      'atom1'     :int,
@@ -309,13 +288,8 @@ class PSF:
                 newTable = pd.DataFrame(data).dropna()
                 pair1 = newTable[[0,1,2,3]]
                 pair1.columns=['atom1','atom2','atom3','atom4']
-                try:
-                    pair2 = newTable[[4,5,6,7]]
-                    pair2.columns=['atom1','atom2','atom3','atom4']
-                except:
-                    pair2 = pd.DataFrame()
-                super().__init__(data=self.append(pair1, ignore_index=True)
-                                          .append(pair2, ignore_index=True).astype({
+
+                super().__init__(data=self.append(pair1, ignore_index=True).astype({
                          'atom1'     :int,
                          'atom2'     :int,
                          'atom3'     :int,
@@ -331,7 +305,7 @@ class PSF:
                     'atom1','atom2','atom3','atom4'])
 
         def readFile(self, filename):
-            data=PSF.readSection(filename, "CRTERM", itemsPerLine=2)
+            data=PSF.readSection(filename, "CRTERM", 4,2)
             if len(data) == 0:
                 super().__init__(data=self.astype({
                      'atom1'     :int,
@@ -342,11 +316,8 @@ class PSF:
             else:
                 newTable = pd.DataFrame(data).dropna()
                 pair1 = newTable[[0,1,2,3]]
-                pair2 = newTable[[4,5,6,7]]
                 pair1.columns=['atom1','atom2','atom3','atom4']
-                pair2.columns=['atom1','atom2','atom3','atom4']
-                super().__init__(data=self.append(pair1, ignore_index=True)
-                                          .append(pair2, ignore_index=True))
+                super().__init__(data=self.append(pair1, ignore_index=True))
 
 
 class PRM:
