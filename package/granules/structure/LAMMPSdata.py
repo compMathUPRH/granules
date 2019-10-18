@@ -154,15 +154,15 @@ class AtomsDF(AtomPropertySection):
 
         # extract info from charmm
         sel_psf     = charmm.psf.atoms[['ID', 'Type', 'Charge']].set_index('ID')
-        print(sel_psf)
+        #print(sel_psf)
         sel_pdb     = charmm.pdb[['ID','x','y','z']].set_index('ID')
-        print(sel_pdb)
+        #print(sel_pdb)
         sel         = sel_pdb.join(sel_psf)
-        print(sel)        
+        #print(sel)        
         sel['aType'] = sel_psf['Type'].map(charmmTypeToInt)
-        print(sel)
+        #print(sel)
         sel.reset_index(inplace=True)
-        print(sel)        
+        #print(sel)        
         sel         .rename(columns={"Charge":"Q",'ID':'aID'}, inplace=True)
 
         # add remining columns
@@ -710,7 +710,7 @@ class ImproperCoeffs(ForceFieldSection):
 
         super(ImproperCoeffs, self).__init__(impropers)
         #print(self)
-
+ 
 #===================================================================
 #CLASES TEMPORERAS
         
@@ -809,13 +809,33 @@ class LammpsData:
         atomIds['key'] = np.ones(len(atomIds))
         atomIds = pd.merge(atomIds, atomIds, on='key')[['aID_x', 'aID_y']]
         atomIds = atomIds[atomIds['aID_x'] < atomIds['aID_y']]
-        # remove bonded atoms
+
         atomIds['nbID'] = np.arange(len(atomIds))
 
         # compute pairwise distances
+        print(len(atomIds))
         from scipy.spatial.distance import pdist
         atomIds['rij'] = pdist(self.atoms.set_index('aID')[['x', 'y', 'z']].values)
         atomIds = atomIds[atomIds['rij'] < NONB_CUTOFF]
+
+        # remove bonded atoms
+        print(len(atomIds))
+        atomIds['p'] = list(zip(atomIds.aID_x, atomIds.aID_y))
+        bonds = self.bonds.copy()
+        bonds['p'] = list(zip(bonds.Atom1, bonds.Atom2))
+        atomIds = atomIds.set_index('p').join(bonds.set_index('p'))
+        atomIds = atomIds[atomIds.bID.isna()][['aID_x','aID_y','nbID','rij']].reset_index(drop=True)
+        del bonds
+        print(len(atomIds))
+
+        # remove angled atoms
+        atomIds['p'] = list(zip(atomIds.aID_x, atomIds.aID_y))
+        angles = self.angles.copy()
+        angles['p'] = list(zip(angles.Atom1, angles.Atom3))
+        atomIds = atomIds.set_index('p').join(angles.set_index('p'))
+        atomIds = atomIds[atomIds.anID.isna()][['aID_x','aID_y','nbID','rij']].reset_index(drop=True)
+        del angles
+        print(len(atomIds))
 
         # get atom types and charges
         atomIds = atomIds.set_index('aID_x').join(self.atoms[['aID', 'Q']].set_index('aID'))
@@ -825,7 +845,7 @@ class LammpsData:
         atomIds = atomIds.set_index('aID_y').join(self.atoms[['aID', 'Q']].set_index('aID'))
         atomIds = atomIds.join(self.atoms[['aID', 'aType']].set_index('aID')).reset_index(drop=True)
         atomIds.rename(columns={'aType':'ajType', 'Q':'qj'}, inplace=True)
-        print(atomIds)
+        print(len(atomIds))
 
         # get epsilons and sigmas for each atom type
         atomIds = atomIds.set_index('aiType').join(
@@ -846,10 +866,15 @@ class LammpsData:
 
         atomIds.set_index('nbID', inplace=True)
         print(atomIds)
-        # return LJ and Columb
-        atomIds.rij = atomIds.sigma/atomIds.rij / epsilon_0 * physical_constants['electric constant'][0]
-        return np.sum(atomIds.epsilon * (atomIds.rij**12 - atomIds.rij**6)), np.sum(atomIds.qi * atomIds.qj / atomIds.rij)
+        # return LJ and Coulomb
+        COULOMB = 332.0636
 
+        '''
+        return -np.sum(atomIds.epsilon * (atomIds.rij**12 - atomIds.rij**6)), \
+               np.sum((physical_constants['electric constant'][0] * atomIds.qi * atomIds.qj) / (atomIds.rij * epsilon_0))
+        '''
+        return -np.sum(atomIds.epsilon * ((atomIds.sigma/atomIds.rij)**12 - (atomIds.sigma/atomIds.rij)**6)), \
+               COULOMB * np.sum((atomIds.qi * atomIds.qj) / (atomIds.rij))
 
     def charmmBondEnergy(self):
         ''' Computes CHARMM bond energy.
