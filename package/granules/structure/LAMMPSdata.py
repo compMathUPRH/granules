@@ -981,6 +981,203 @@ class LammpsData:
         '''
         '''
 
+
+    def charmmNonBondForce(self):
+        ''' Computes CHARMM Lennard-Jones energy.
+            Formula: Eps,i,j[(Rmin,i,j/ri,j)**12 - 2(Rmin,i,j/ri,j)**6]
+                    Eps,i,j = sqrt(eps,i * eps,j)
+                    Rmin,i,j = Rmin/2,i + Rmin/2,j
+
+            Computes CHARMM Coulumb energy.
+            Formula: qi qj/rij / epsilon_0
+
+            returns (L-J, Coulomb)
+        '''
+        from scipy.constants import epsilon_0, physical_constants
+
+        NONB_CUTOFF = 13.0
+
+        # generate all pairs of atoms IDs
+        atomIds = self.atoms[['aID']].copy()
+        atomIds['key'] = np.ones(len(atomIds))
+        atomIds = pd.merge(atomIds, atomIds, on='key')[['aID_x', 'aID_y']]
+        atomIds = atomIds[atomIds['aID_x'] < atomIds['aID_y']]
+
+        atomIds['nbID'] = np.arange(len(atomIds))
+
+        # compute pairwise distances
+        print(len(atomIds))
+        from scipy.spatial.distance import pdist
+        atomIds['rij'] = pdist(self.atoms.set_index('aID')[['x', 'y', 'z']].values)
+        atomIds = atomIds[atomIds['rij'] < NONB_CUTOFF]
+
+        # remove bonded atoms
+        print(len(atomIds))
+        atomIds['p'] = list(zip(atomIds.aID_x, atomIds.aID_y))
+        bonds = self.bonds.copy()
+        bonds['p'] = list(zip(bonds.Atom1, bonds.Atom2))
+        atomIds = atomIds.set_index('p').join(bonds.set_index('p'))
+        atomIds = atomIds[atomIds.bID.isna()][['aID_x','aID_y','nbID','rij']].reset_index(drop=True)
+        del bonds
+        print(len(atomIds))
+
+        # remove angled atoms
+        atomIds['p'] = list(zip(atomIds.aID_x, atomIds.aID_y))
+        angles = self.angles.copy()
+        angles['p'] = list(zip(angles.Atom1, angles.Atom3))
+        atomIds = atomIds.set_index('p').join(angles.set_index('p'))
+        atomIds = atomIds[atomIds.anID.isna()][['aID_x','aID_y','nbID','rij']].reset_index(drop=True)
+        del angles
+        print(len(atomIds))
+
+        # get atom types and charges
+        atomIds = atomIds.set_index('aID_x', drop=False).join(self.atoms[['aID', 'Q']].set_index('aID'))
+        atomIds.rename(columns={'Q':'qi'}, inplace=True)
+        atomIds = atomIds.join(self.atoms[['aID', 'aType']].set_index('aID')).reset_index(drop=True)
+        atomIds.rename(columns={'aType':'aiType'}, inplace=True)
+        atomIds = atomIds.set_index('aID_y', drop=False).join(self.atoms[['aID', 'Q']].set_index('aID'))
+        atomIds = atomIds.join(self.atoms[['aID', 'aType']].set_index('aID')).reset_index(drop=True)
+        atomIds.rename(columns={'aType':'ajType', 'Q':'qj'}, inplace=True)
+        print(len(atomIds))
+
+        # get epsilons and sigmas for each atom type
+        atomIds = atomIds.set_index('aiType').join(
+                        self.pairCoeffs.set_index('aType')
+                 ).reset_index(drop=True)
+        atomIds.drop(columns=['epsilon1_4', 'sigma1_4'], inplace=True)
+        atomIds.rename(columns={'epsilon':'epsilon_i', 'sigma':'sigma_i'}, inplace=True)
+        atomIds = atomIds.set_index('ajType').join(
+                        self.pairCoeffs.set_index('aType')
+                 ).reset_index(drop=True).drop(columns=['epsilon1_4', 'sigma1_4'])
+        atomIds.rename(columns={'epsilon':'epsilon_j', 'sigma':'sigma_j'}, inplace=True)
+
+        # compute epsilon and sigma
+        atomIds['epsilon'] = np.sqrt(atomIds.epsilon_i * atomIds.epsilon_j)
+        atomIds['sigma'] = atomIds.sigma_i + atomIds.sigma_j
+        atomIds.drop(columns=['epsilon_i', 'epsilon_j', 'sigma_i', 'sigma_j'], inplace=True)
+
+
+        atomIds.set_index('nbID', drop=False, inplace=True)
+        # return LJ and Coulomb
+        COULOMB = 332.0636
+
+
+        print(atomIds.columns.values)
+        bi = atomIds.set_index('aID_x').join(
+                self.atoms.set_index('aID')
+             )[['nbID', 'x', 'y', 'z']].set_index('nbID')
+        bj = atomIds.set_index('aID_y').join(
+                self.atoms.set_index('aID')
+             )[['nbID', 'x', 'y', 'z']].set_index('nbID')
+        
+        bij = (bj - bi).div(atomIds.rij, axis=0)
+        
+        forces = -atomIds.epsilon * (-12 * (atomIds.sigma**12/atomIds.rij**13) + 6 * (atomIds.sigma**6/atomIds.rij**7)) - COULOMB * (atomIds.qi * atomIds.qj) / (atomIds.rij**2)
+        wi = bij.mul(forces, axis=0)
+        wj = bij.mul(-forces, axis=0)
+        
+        fi = wi.join(atomIds[['nbID', 'aID_x']].set_index('nbID')).groupby('aID_x').sum()
+        fj = wj.join(atomIds[['nbID', 'aID_y']].set_index('nbID')).groupby('aID_y').sum()
+        ff = fj.add(fi, axis=0, fill_value=0)
+
+        return ff
+
+
+    def charmmBondForce(self):
+        ''' Computes CHARMM bond energy.
+            Formula: sum K * (bij - b0)**2
+        '''
+        bi = self.bonds.set_index('Atom1').join(
+                self.atoms.set_index('aID')
+             )[['bID','x', 'y', 'z']].set_index('bID')
+
+        bj = self.bonds.set_index('Atom2').join(
+                self.atoms.set_index('aID')
+             )[['bID','x', 'y', 'z']].set_index('bID')
+
+        bij = bj - bi  # bonds
+        rbij = np.sqrt(np.sum((bij) ** 2, axis='columns'))  # bonds lengths
+
+        coeffs = self.bonds[['bID','bType']].set_index('bType').join(
+                        self.bondCoeffs.set_index('bType')
+                 ).reset_index(drop=True)
+        K = coeffs[['bID','Spring_Constant']].set_index('bID').Spring_Constant
+        b0 = coeffs[['bID','Eq_Length']].set_index('bID').Eq_Length
+
+        forces = -2 * K * (rbij-b0)
+        
+        bij = bij.div(rbij, axis=0)  # normalize
+        wi = bij.mul(forces, axis=0)
+        wj = bij.mul(-forces, axis=0)
+        
+        fi = wi.join(self.bonds.set_index('bID'))[['x','y','z','Atom1']].groupby('Atom1').sum()
+        fj = wi.join(self.bonds.set_index('bID'))[['x','y','z','Atom2']].groupby('Atom2').sum()
+        fi.index.names = ['aID']
+        fj.index.names = ['aID']
+        ff = fi.add(fj, axis=0, fill_value=0)
+
+        return ff
+
+
+
+    def charmmAngleForce(self):
+        ''' Computes CHARMM angle energy.
+            Formula: sum K * (aij - a0)**2
+        '''
+        bi = self.angles.set_index('Atom1').join(
+                self.atoms.set_index('aID')
+             )[['anID','x', 'y', 'z']].set_index('anID')
+
+        bj = self.angles.set_index('Atom2').join(
+                self.atoms.set_index('aID')
+             )[['anID','x', 'y', 'z']].set_index('anID')
+
+        bk = self.angles.set_index('Atom3').join(
+                self.atoms.set_index('aID')
+             )[['anID','x', 'y', 'z']].set_index('anID')
+
+        # compute angles
+        l1 = bi - bj
+        l2 = bk - bj
+
+        norm1 = np.sqrt(np.square(l1).sum(axis=1))
+        norm2 = np.sqrt(np.square(l1).sum(axis=1))
+        dot = l1.x * l2.x + l1.y * l2.y + l1.z * l2.z
+        angles = np.arccos(dot / (norm1 * norm2))
+
+        coeffs = self.angles[['anID','anType']].set_index('anType').join(
+                        self.angleCoeffs.set_index('anType')
+                 ).reset_index(drop=True)
+
+        K = coeffs[['anID','Ktheta']].set_index('anID').Ktheta
+        a0 = np.radians(coeffs[['anID','Theta0']].set_index('anID').Theta0)
+
+        c11 = l1.x * l1.x + l1.y * l1.y + l1.z * l1.z
+        c12 = l1.x * l2.x + l1.y * l2.y + l1.z * l2.z
+        c22 = l2.x * l2.x + l2.y * l2.y + l2.z * l2.z
+        cd = np.sqrt(c11 * c22)
+        c = c12 / cd
+        
+        forces = -2 * K * (angles-a0)
+        
+        w1 = l1.mul(c12 / c11, axis=0).add(-l2, axis=0).mul(forces / cd, axis=0)
+        w2 = l1.sub(l2.mul(c12 / c22, axis=0),  axis=0).mul(forces / cd, axis=0)
+
+        #print(self.angles.columns.values)
+        f1 = w1.join(self.angles.set_index('anID'))[['x','y','z','Atom1']].groupby('Atom1').sum()
+        f2 = w1.sub(w2, axis=0).join(self.angles.set_index('anID'))[['x','y','z','Atom2']].groupby('Atom2').sum()
+        f3 = w2.join(self.angles.set_index('anID'))[['x','y','z','Atom3']].groupby('Atom3').sum()
+        f1.index.names = ['aID']
+        f2.index.names = ['aID']
+        f3.index.names = ['aID']
+
+        ff = f1.add(f2.add(f3, axis=0, fill_value=0), axis=0, fill_value=0)
+        #print (ff)
+        return ff
+
+    def charmmForce(self):
+        return self.charmmNonBondForce().add(self.charmmBondForce(), axis=0).add(self.charmmAngleForce(), axis=0)
+
     def loadNAMDdata(self, charmm):
         ''' loads data from NAMDdata object into self.'''
         #print("loadNAMDdata=",charmm.psf.dihedrals)
