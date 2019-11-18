@@ -18,4 +18,4 @@ ch.readFiles("2rvd_autopsf.pdb", "2rvd_autopsf.psf", "par_all36_prot.prm")
 l.loadNAMDdata(ch)
 l.writeConf("2rvd.data")
 
-print(l.charmmDihedralsEnergy())
+print(l.charmmForce())
