@@ -79,30 +79,23 @@ def detectAtomTypes(charmm):
 class LammpsBodySection(pd.DataFrame):
 
     def add(self, data):
-        #print("\nVariableColumnsSections add ", type(self))
-        #Conocer cuantas columnas deben haber
-        cont=len(data[0])
-        columns = list(self.columns)
-        col_num=len(columns)
-
-        #Guardar los nombres adecuados de las columnas
-        while cont != col_num:
-            col = 'Coeff' + str(col_num)
-            columns.append(col)
-            col_num += 1
-       
+    
+        #Almacenar numeros de columnas
+        columns = list(self.columns)  
         #Separar la data para almacenar en diccionario
         dtable = {col:[] for col in columns}
-        #print("VariableColumnsSections columns ", columns)
-        #print("VariableColumnsSections data ", data[0])
-          
+        
+        #Rellenar lista de listas con valor nulo '0' de ser necesario
+        dif = len(self.columns) - len(data[0])
+        if dif > 0: 
+            for i in range(len(data)): 
+                for j in range(dif):
+                    data[i].append('0')
+        
         for d in data:
             for col in columns:
-                try:
-                    dtable[col].append(self[col].dtype.type(d.pop(0)))
-                except KeyError:
-                    dtable[col].append(float(d.pop(0)))
-
+                try:dtable[col].append(self[col].dtype.type(d.pop(0)))
+                except KeyError:dtable[col].append(float(d.pop(0)))
 
         #Crear dataframe con toda la informacion
         fr = pd.DataFrame(dtable, copy=False, columns=columns)
@@ -115,7 +108,6 @@ class LammpsBodySection(pd.DataFrame):
             super().__init__(data=fr)
         else:
             super().__init__(data=self.append(fr, ignore_index=True))
-        #print("VariableColumnsSections types ", self.dtypes)
 
 
 #===================================================================
@@ -744,17 +736,12 @@ class PSF_File(MolecularTopologySections):
 
 #=================================================================== 
 
-class LammpsData:
+class LammpsData():
     ''' Holds LAMMPS data.
         See "Format of a data file" section in https://lammps.sandia.gov/doc/read_data.html
     '''
 
     def __init__(self):
-
-        # atom-property sections
-        self.atoms       = AtomsDF()
-        self.velocities  = VelocitiesDF()
-        self.masses      = MassesDF()
 
         '''
         self['Ellipsoids']  = EllipsoidsDF()
@@ -763,6 +750,11 @@ class LammpsData:
         self.triangles   = TrianglesDF()
         self.bodies   = BodiesDF()
         '''
+
+        # atom-property sections
+        self.atoms       = AtomsDF()
+        self.velocities  = VelocitiesDF()
+        self.masses      = MassesDF()
 
         # molecular topology sections
         self.bonds       = BondsDF()
@@ -787,7 +779,264 @@ class LammpsData:
         self.angleTorsionCoeffs     = ForceFieldSection()
         self.endBondTorsionCoeffs   = ForceFieldSection()
         self.angleAngleTorsionCoeffs= ForceFieldSection()
+    
+
+    def read(self, filename):
+    
+        #Abrir el archivo para leer datos
+        arch = open(filename, 'r')
+        serial = 1
+        ind = 0
+        num = []
+        tipo = []
+        caja = []
         
+        l = LammpsData()
+               
+        #Prepare cycle to enhance process by removing CAPS and spaces to get DF keyword. 
+        keywords = ["Masses","Pair Coeffs","Bond Coeffs","Angle Coeffs","Dihedral Coeffs",
+                    "Improper Coeffs","Atoms","Velocities","Bonds","Angles","Dihedrals","Impropers"]
+
+        for linea in arch:
+            valid = True
+            
+            key = linea.strip()
+            data = []
+            #Si encuentro la seccion deseada en el archivo
+            if key in keywords:
+            
+                #Comienzo a almacenar la informacion
+                linea = next(arch)
+                linea = next(arch)   
+                       
+                #Almacenar la informacion mientras exista
+                while valid:      
+                    data.append(linea.split())
+                    #Prevenir error de iteracion cuando el archivo se acaba
+                    try: linea = next(arch)
+                    except(StopIteration):
+                        valid = False
+                        break
+                    #Si se acaban los datos del parametro, vamos al proximo
+                    if linea.strip() == '':
+                        valid = False
+                       
+                #Almacenar toda la data de esa seccion
+                if key == 'Masses': self.masses.add(data)
+                if key == 'Pair Coeffs': self.pairCoeffs.add(data)
+                if key == 'Bond Coeffs': self.bondCoeffs.add(data)
+                if key == 'Angle Coeffs': self.angleCoeffs.add(data)                
+                if key == 'Dihedral Coeffs': self.dihedralCoeffs.add(data)
+                if key == 'Improper Coeffs':self.improperCoeffs.add(data)
+                if key == 'Atoms': self.atoms.add(data)                
+                if key == 'Velocities': self.velocities.add(data)   
+                if key == 'Bonds': self.bonds.add(data)
+                if key == 'Angles': self.angles.add(data)                
+                if key == 'Dihedrals': self.dihedrals.add(data)
+                if key == 'Impropers':self.impropers.add(data)                
+              
+        arch.close()                
+           
+                        
+                
+                
+                
+        '''
+        if linea[0:18] == 'LAMMPS Description':
+
+            #Esta linea solo me indica que comienza la descripcion
+            #Por lo tanto, paso a la proxima linea con informacion
+            linea = next(arch)
+            linea = next(arch)
+
+            #Almacenar la informacion mientras exista
+            while valid:
+                
+                #Recoger los datos, separados por espacios
+                n, t = linea.split()
+                num.append(int(n))
+                tipo.append(t.capitalize())
+
+                linea = next(arch)
+
+                #Si se acaban los datos del parametro, vamos al proximo
+                if linea.strip() == '':
+                    linea = next(arch) 
+
+                    #La masa tiene el mismo valor que este
+                    n = linea.split()
+                    num.append(int(n[0]))
+
+                    while valid:
+                        
+                        #Recoger los datos, separados por espacios
+                        n = linea.split()
+                        num.append(int(n[0]))
+                        
+                        linea = next(arch) 
+                        if linea.strip() == '':
+                            #Cada atomo tiene atributos de velocidad  
+                            num.append(num[0])  
+                            valid = False  
+                            for i in range(3):
+                                linea = next(arch) 
+
+        #Identificar las siguientes
+        if linea.strip() == tipo[ind]:
+            if ind != len(tipo)-1:
+                ind += 1
+
+        #Si la inea esta vacia, viene informacion importante desconocida luego
+        if linea.strip() == '':
+            t = next(arch).strip()
+            if t not in tipo:
+                tipo.append(t.capitalize())
+            linea = next(arch)
+            
+        if linea[0:4] == 'BOND':
+            #Seguir llenando el diccionario
+
+            SecDict['bonds']= linea[0:4] 
+
+            #Esta linea solo me indica que tipo de parametro es
+            #Por lo tanto, paso a la proxima
+            linea = next(arch)
+
+            #Almacenar la informacion mientras exista
+            while valid:
+                
+                #Recoger los datos, separados por espacios
+                var1, var2, var3, var4 = linea.split()
+                SecDict['Type1']= var1
+                SecDict['Force']= float(var2)
+                SecDict['Charge']= float(var3)
+                SecDict['Energy']= float(var4)
+                
+                #Enviar datos al DataFrame
+                self.loc[serial] = SecDict
+                
+                #Prevenir error de iteracion cuando el archivo se acaba
+                try: 
+                    linea = next(arch)
+                    serial += 1
+                except(StopIteration):
+                    valid = False
+                    break
+
+                #Si se acaban los datos del parametro, culminamos el ciclo
+                if linea[:].strip() == '' or linea[6:8].strip() == '>':
+                    valid = False
+
+        if linea[0:4] == 'BOND':
+
+            #Seguir llenando el diccionario
+            SecDict['Section']=linea[0:4]  
+
+            #Esta linea solo me indica que tipo de parametro es
+            #Por lo tanto, paso a la proxima
+            linea = next(arch)
+
+            #Almacenar la informacion mientras exista
+            while valid:
+                
+                #Recoger los datos, separados por espacios
+                var1, var2, var3, var4 = linea.split()
+                SecDict['Type1']= var1
+                SecDict['Type2']= var2
+                SecDict['Spring_Constant']= float(var3)
+                SecDict['Eq_Length']= float(var4)
+                
+                #Enviar datos al DataFrame
+                self.loc[serial] = SecDict
+                
+                #Prevenir error de iteracion cuando el archivo se acaba
+                try: 
+                    linea = next(arch)
+                    serial += 1
+                except(StopIteration):
+                    valid = False
+                    break
+
+                #Si se acaban los datos del parametro, culminamos el ciclo
+                if linea[:].strip() == '' or linea[6:8].strip() == '>':
+                    valid = False
+
+
+        if linea[0:4] == 'ANGL':
+
+            #Seguir llenando el diccionario
+            SecDict['Section']=linea[0:4]   
+
+            #Esta linea solo me indica que tipo de parametro es
+            #Por lo tanto, paso a la proxima
+            linea = next(arch)
+
+            #Almacenar la informacion mientras exista
+            while valid:
+                
+                #Recoger los datos, separados por espacios
+                var1, var2, var3, var4, var5 = linea.split()
+                SecDict['Type1']= var1
+                SecDict['Type2']= var2
+                SecDict['Type3']= var3
+                SecDict['Spring_Constant']= float(var4)
+                SecDict['Eq_Angle']= float(var5)
+                
+                #Enviar datos al DataFrame
+                self.loc[serial] = SecDict
+                
+                #Prevenir error de iteracion cuando el archivo se acaba
+                try: 
+                    linea = next(arch)
+                    serial += 1
+                except(StopIteration):
+                    valid = False
+                    break
+
+                #Si se acaban los datos del parametro, culminamos el ciclo
+                if linea[:].strip() == '' or linea[6:8].strip() == '>':
+                    valid = False
+
+
+        if linea[0:4] == 'DIHE':
+
+            #Seguir llenando el diccionario
+            SecDict['Section']=linea[0:4]   
+
+            #Esta linea solo me indica que tipo de parametro es
+            #Por lo tanto, paso a la proxima
+            linea = next(arch)
+
+            #Almacenar la informacion mientras exista
+            while valid:
+                
+                #Recoger los datos, separados por espacios
+                var1, var2, var3, var4, var5, var6, var7 = linea.split()
+                SecDict['Type1']= var1
+                SecDict['Type2']= var2
+                SecDict['Type3']= var3
+                SecDict['Type4']= var4
+                SecDict['Spring_Constant']= float(var5)
+                SecDict['Multiplicity']= float(var6)
+                SecDict['Eq_Angle']= float(var7)
+                
+                #Enviar datos al DataFrame
+                self.loc[serial] = SecDict
+                
+                #Prevenir error de iteracion cuando el archivo se acaba
+                try: 
+                    linea = next(arch)
+                    serial += 1
+                except(StopIteration):
+                    valid = False
+                    break
+
+                #Si se acaban los datos del parametro, culminamos el ciclo
+                if linea[:].strip() == '' or linea[6:8].strip() == '>':
+                    valid = False
+    '''
+
+
 
     def charmmNonBondEnergy(self):
         ''' Computes CHARMM Lennard-Jones energy.
@@ -1298,9 +1547,17 @@ class LammpsData:
 
 if __name__ == "__main__":  # tests
     from NAMDdata import NAMDdata
+    
     l = LammpsData()
+    l.read('data.peptide')
+    
+    #Imprimir todos los datos    
+    #input(l.__dict__)
+
+    '''
     ch = NAMDdata()
     ch.readFiles("2rvd_autopsf.pdb", "2rvd_autopsf.psf", "par_all36_prot.prm")
 
     l.loadNAMDdata(ch)
     l.writeConf("2rvd.data")
+    '''
