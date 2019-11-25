@@ -1,0 +1,4 @@
+# creates a symbolic link to package granules in python3 user site, 
+#assuming this file is ran on the same folder as this file resides
+
+ln -s "$(pwd)/package/granules" "$(python3 -m site --user-site)"
