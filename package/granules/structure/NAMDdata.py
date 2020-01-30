@@ -578,16 +578,42 @@ class PRM:
 class NAMDdata:
     ''' Groups PDB, PRM and PSF objects.'''
 
-    def __init__(self):
+    def __init__(self, *files):
         self.pdb = PDB()
         self.psf = PSF()
         self.prm = PRM()
-
+        
+        if files:
+            self.readFiles()
+        
+    ___commented_old_function = """
     def readFiles(self, file_pdb=None, file_psf=None, file_prm=None):
+        #
         if file_pdb != None: self.pdb.readFile(file_pdb)
         if file_psf != None: self.psf.readFile(file_psf)
         if file_prm != None: self.prm.readFile(file_prm)
-
+    """
+    
+    def readFiles(self, *files):
+        print(files)
+        print(type(files))
+        print(len(files))
+        if len(files) == 0:
+            print("no files given to readFiles function")
+        elif len(files) > 3:
+            print("too many files given to readFiles function")
+        else:
+            for f in files:
+                if ".pdb" in f:
+                    self.pdb.readFile(f)
+                elif ".psf" in f:
+                    self.psf.readFile(f)
+                elif ".prm" in f:
+                    self.prm.readFile(f)
+                else: 
+                    print(f"file: '{f}' does not have pdb, psf or prm as an extension")
+        
+        
 
 
 #=============================================================================
