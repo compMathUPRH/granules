@@ -1,0 +1,14 @@
+*>>>>>> CHARMM parameter file for C_Tube(10,10) <<<<<<<<<
+*>>>>>> Produced by Wolfia, wolffia.uprh.edu <<<<<<<<<
+
+NONB     ! C_Tube(10,10)
+C000   0.000000  -0.070000     1.992400
+
+BOND   ! C_Tube(10,10)
+C000 C000  305.000     1.3350
+
+ANGL   ! C_Tube(10,10)
+C000 C000 C000   40.000   120.0000
+
+DIHE   ! C_Tube(10,10)
+C000 C000 C000 C000     3.1000  2   180.00
