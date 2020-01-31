@@ -1448,6 +1448,8 @@ class LammpsData():
         self.improperCoeffs.setFromPSF(charmm, self.impropers)
 
     def writeConf(self, filename):
+        import sys
+
         cfile = open(filename, "w")
 
 
@@ -1469,42 +1471,60 @@ class LammpsData():
 
 
         #Masses
-        cfile.write('\nMasses\n\n')
-        cfile.write(self.masses.to_string(index=False, columns=self.masses.columns, header=False))
-        cfile.write("\n")
+        if len(self.masses) > 0:
+            cfile.write('\nMasses\n\n')
+            cfile.write(self.masses.to_string(index=False, columns=self.masses.columns, header=False))
+            cfile.write("\n")
+        else:
+            sys.stderr.write("WARNING: No atom mass values to write. Simulation unlikely to run with this file.")
 
 
         #Pair Coeffs
-        cfile.write('\nPair Coeffs\n\n')
-        #print("Pair Coeffs:", self.pairCoeffs.columns)
-        #[cfile.write('{:>3d}{:>12}{:>12}{:>12}{:>12}\n'.format(row['ID'], row['Charge'], row['Energy'],
-        # row['Charge'], row['Energy'])) for index, row in self['Pair Coeffs'].iterrows()]
-        cfile.write(self.pairCoeffs.to_string(index=False, columns=self.pairCoeffs.columns, header=False))        
-        cfile.write("\n")
+        if len(self.pairCoeffs) > 0:
+            cfile.write('\nPair Coeffs\n\n')
+            #print("Pair Coeffs:", self.pairCoeffs.columns)
+            #[cfile.write('{:>3d}{:>12}{:>12}{:>12}{:>12}\n'.format(row['ID'], row['Charge'], row['Energy'],
+            # row['Charge'], row['Energy'])) for index, row in self['Pair Coeffs'].iterrows()]
+            cfile.write(self.pairCoeffs.to_string(index=False, columns=self.pairCoeffs.columns, header=False))        
+            cfile.write("\n")
+        else:
+            sys.stderr.write("WARNING: No Pair coefficients to write.\n")
 
 
         #Bond Coeffs
-        cfile.write('\nBond Coeffs\n\n')
-        cfile.write(self.bondCoeffs.to_string(index=False, columns=self.bondCoeffs.columns, header=False))        
-        cfile.write("\n")
+        if len(self.bondCoeffs) > 0:
+            cfile.write('\nBond Coeffs\n\n')
+            cfile.write(self.bondCoeffs.to_string(index=False, columns=self.bondCoeffs.columns, header=False))        
+            cfile.write("\n")
+        else:
+            sys.stderr.write("WARNING: No bond coefficients to write.\n")
 
 
         #Angle Coeffs
-        cfile.write('\nAngle Coeffs\n\n')
-        cfile.write(self.angleCoeffs.to_string(index=False, columns=self.angleCoeffs.columns, header=False))        
-        cfile.write("\n")
+        if len(self.angleCoeffs) > 0:
+            cfile.write('\nAngle Coeffs\n\n')
+            cfile.write(self.angleCoeffs.to_string(index=False, columns=self.angleCoeffs.columns, header=False))        
+            cfile.write("\n")
+        else:
+            sys.stderr.write("WARNING: No angle coefficients to write.\n")
 
 
         #Dihedral Coeffs
-        cfile.write('\nDihedral Coeffs\n\n')
-        cfile.write(self.dihedralCoeffs.to_string(index=False, columns=self.dihedralCoeffs.columns, header=False))        
-        cfile.write("\n")
+        if len(self.dihedralCoeffs) > 0:
+            cfile.write('\nDihedral Coeffs\n\n')
+            cfile.write(self.dihedralCoeffs.to_string(index=False, columns=self.dihedralCoeffs.columns, header=False))        
+            cfile.write("\n")
+        else:
+            sys.stderr.write("WARNING: No dihedral coefficients to write.\n")
 
 
         #Improper Coeffs
-        cfile.write('\nImproper Coeffs\n\n') 
-        cfile.write(self.improperCoeffs.to_string(index=False, columns=self.improperCoeffs.columns, header=False))        
-        cfile.write("\n")
+        if len(self.improperCoeffs) > 0:
+            cfile.write('\nImproper Coeffs\n\n') 
+            cfile.write(self.improperCoeffs.to_string(index=False, columns=self.improperCoeffs.columns, header=False))        
+            cfile.write("\n")
+        else:
+            sys.stderr.write("WARNING: No improper coefficients to write.\n")
 
 
         #Atoms
@@ -1521,27 +1541,39 @@ class LammpsData():
 
 
         #Bonds
-        cfile.write('\nBonds\n\n')
-        cfile.write(self.bonds.to_string(index=False, columns=self.bonds.columns, header=False))
-        cfile.write("\n")
+        if len(self.bonds) > 0:
+            cfile.write('\nBonds\n\n')
+            cfile.write(self.bonds.to_string(index=False, columns=self.bonds.columns, header=False))
+            cfile.write("\n")
+        else:
+            sys.stderr.write("WARNING: No bonds to write.\n")
 
         
         #Angles
-        cfile.write('\nAngles\n\n') 
-        cfile.write(self.angles.to_string(index=False, columns=self.angles.columns, header=False))
-        cfile.write("\n")
+        if len(self.angles) > 0:
+            cfile.write('\nAngles\n\n') 
+            cfile.write(self.angles.to_string(index=False, columns=self.angles.columns, header=False))
+            cfile.write("\n")
+        else:
+            sys.stderr.write("WARNING: No angles to write.\n")
 
 
         #Dihedrals
-        cfile.write('\nDihedrals\n\n') 
-        cfile.write(self.dihedrals.to_string(index=False, columns=self.dihedrals.columns, header=False))
-        cfile.write("\n")
+        if len(self.dihedrals) > 0:
+            cfile.write('\nDihedrals\n\n') 
+            cfile.write(self.dihedrals.to_string(index=False, columns=self.dihedrals.columns, header=False))
+            cfile.write("\n")
+        else:
+            sys.stderr.write("WARNING: No dihedrals to write.\n")
 
 
         #Impropers
-        cfile.write('\nImpropers\n\n') 
-        cfile.write(self.impropers.to_string(index=False, columns=self.impropers.columns, header=False))
-        cfile.write("\n")
+        if len(self.impropers) > 0:
+            cfile.write('\nImpropers\n\n') 
+            cfile.write(self.impropers.to_string(index=False, columns=self.impropers.columns, header=False))
+            cfile.write("\n")
+        else:
+            sys.stderr.write("WARNING: No impropers to write.\n")
 
 
 
