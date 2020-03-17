@@ -120,12 +120,12 @@ class PSF:
             filename : str
                 psf file name
         '''
-        self.atoms.readFile(filename)
-        self.bonds.readFile(filename)
-        self.angles.readFile(filename)
-        self.dihedrals.readFile(filename)
-        self.impropers.readFile(filename)
-        self.cross_terms.readFile(filename)
+        self.atoms.readSection(filename)
+        self.bonds.readSection(filename)
+        self.angles.readSection(filename)
+        self.dihedrals.readSection(filename)
+        self.impropers.readSection(filename)
+        self.cross_terms.readSection(filename)
 
     @staticmethod
     def readSection(filename, section, tupleLength, itemsPerLine):
@@ -190,7 +190,7 @@ class PSF:
                         'ID','RecName','ChainID', 'ResName', 'Name', 
                         'Type', 'Charge', 'Mass', 'Unused'])
 
-        def readFile(self, filename):
+        def readSection(self, filename):
             newTable = PSF.ATOM(data=PSF.readSection(filename, "ATOM", 9, 1))  
             #print(newTable)
             # set column types and append to existing table
@@ -208,7 +208,7 @@ class PSF:
             super(PSF.BOND, self).__init__(data=data, copy=copy, columns=[
                     'atom1','atom2'])
 
-        def readFile(self, filename):
+        def readSection(self, filename):
             data=PSF.readSection(filename, "BOND", 2, 4)
             newTable = pd.DataFrame(data).dropna()
             pair1 = newTable[[0,1]]
@@ -227,7 +227,7 @@ class PSF:
             super(PSF.THETA, self).__init__(data=data, copy=copy, columns=[
                     'atom1','atom2','atom3'])
 
-        def readFile(self, filename):
+        def readSection(self, filename):
             data=PSF.readSection(filename, "THETA", 3,3)
             newTable = pd.DataFrame(data).dropna()
             pair1 = newTable[[0,1,2]]
@@ -246,7 +246,7 @@ class PSF:
             super(PSF.PHI, self).__init__(data=data, copy=copy, columns=[
                     'atom1','atom2','atom3','atom4'])
 
-        def readFile(self, filename):
+        def readSection(self, filename):
             data=PSF.readSection(filename, "PHI", 4,2)
             if len(data) == 0:
                 super().__init__(data=self.astype({
@@ -275,7 +275,7 @@ class PSF:
             super(PSF.IMPHI, self).__init__(data=data, copy=copy, columns=[
                     'atom1','atom2','atom3','atom4'])
 
-        def readFile(self, filename):
+        def readSection(self, filename):
             data=PSF.readSection(filename, "IMPHI", 4,2)
             if len(data) == 0:
                 super().__init__(data=self.astype({
@@ -304,7 +304,7 @@ class PSF:
             super(PSF.CRTERM, self).__init__(data=data, copy=copy, columns=[
                     'atom1','atom2','atom3','atom4'])
 
-        def readFile(self, filename):
+        def readSection(self, filename):
             data=PSF.readSection(filename, "CRTERM", 4,2)
             if len(data) == 0:
                 super().__init__(data=self.astype({
@@ -344,17 +344,13 @@ class PRM:
                 prm file name
         '''
 
-        self.bonds.readFile(filename)
-        self.angles.readFile(filename)
-        self.dihedrals.readFile(filename)
-        self.impropers.readFile(filename)
-        self.nonbonded.readFile(filename)
+        self.bonds.readSection(filename)
+        self.angles.readSection(filename)
+        self.dihedrals.readSection(filename)
+        self.impropers.readSection(filename)
+        self.nonbonded.readSection(filename)
 
-    @staticmethod
-    def stripComment(line):
-        ''' strips line from PRM file from comments and extra spaces '''
-        return line.split("!")[0].strip()
-
+   
     @staticmethod
     def readSection(filename, section):
         ''' reads section 'section' PRM file
@@ -426,7 +422,7 @@ class PRM:
             return prmFF
 
 
-        def readFile(self, filename):
+        def readSection(self, filename):
 
             data = list()
 
@@ -476,7 +472,7 @@ class PRM:
             return prmFF
 
 
-        def readFile(self, filename):
+        def readSection(self, filename):
             newTable = PRM.BONDS(data=PRM.readSection(filename, "BONDS"))  
             super().__init__(data=self.append(newTable, ignore_index=True).astype({
                      'Kb' :float,
@@ -502,7 +498,7 @@ class PRM:
 
             return prmFF
 
-        def readFile(self, filename):
+        def readSection(self, filename):
             data=PRM.readSection(filename, "ANGLES")
 
             if data != []:
@@ -538,7 +534,7 @@ class PRM:
 
             return prmFF
 
-        def readFile(self, filename):
+        def readSection(self, filename):
             newTable = PRM.DIHEDRALS(data=PRM.readSection(filename, "DIHEDRALS"))  
             super().__init__(data=self.append(newTable, ignore_index=True).astype({
                      'Kchi'  :float,
@@ -564,7 +560,7 @@ class PRM:
 
             return prmFF
 
-        def readFile(self, filename):
+        def readSection(self, filename):
             newTable = PRM.IMPROPER(data=PRM.readSection(filename, "IMPROPER"))  
             super().__init__(data=self.append(newTable, ignore_index=True).astype({
                      'Kpsi' :float,
@@ -595,9 +591,7 @@ class NAMDdata:
     """
     
     def readFiles(self, *files):
-        print(files)
-        print(type(files))
-        print(len(files))
+       
         if len(files) == 0:
             print("no files given to readFiles function")
         elif len(files) > 3:
@@ -611,7 +605,7 @@ class NAMDdata:
                 elif ".prm" in f:
                     self.prm.readFile(f)
                 else: 
-                    print(f"file: '{f}' does not have pdb, psf or prm as an extension")
+                    print("file:" + f + "does not have pdb, psf or prm as an extension")
         
         
 
