@@ -580,7 +580,7 @@ class NAMDdata:
         self.prm = PRM()
         
         if files:
-            self.readFiles()
+            self.readFiles(*files)
         
     ___commented_old_function = """
     def readFiles(self, file_pdb=None, file_psf=None, file_prm=None):

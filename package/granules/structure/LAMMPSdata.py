@@ -602,9 +602,9 @@ class ForceField(LammpsBodySection):
 class AtomsDF(AtomProperty):
     def __init__(self,data=None, dtype=None, copy=False):
         dtypes = {'aID':[0], 'Mol_ID':[0], 'aType':[0], 'Q':[0.0], 
-                  'X':[0.0], 'Y':[0.0], 'Z':[0.0], 'Nx':[0], 'Ny':[0], 'Nz':[0]}   
+                  'x':[0.0], 'y':[0.0], 'z':[0.0], 'Nx':[0], 'Ny':[0], 'Nz':[0]}   
         super(AtomsDF, self).__init__(data=dtypes, copy=copy, columns=['aID', 'Mol_ID', 'aType', 'Q', 
-                  'X', 'Y', 'Z', 'Nx', 'Ny', 'Nz'])
+                  'x', 'y', 'z', 'Nx', 'Ny', 'Nz'])
         super(AtomsDF, self).__init__(self.drop([0]))
         
     def setFromPSF(self, charmm):
@@ -1407,9 +1407,12 @@ class LammpsData():
 
 
         #Velocities
-        cfile.write('\nVelocities\n\n')
-        cfile.write(self.atomproperty.velocities.to_string(index=False, columns=self.atomproperty.velocities.columns, header=False))        
-        cfile.write("\n")
+        if len(self.topologia.bonds) > 0:
+            cfile.write('\nVelocities\n\n')
+            cfile.write(self.atomproperty.velocities.to_string(index=False, columns=self.atomproperty.velocities.columns, header=False))        
+            cfile.write("\n")
+        else:
+            sys.stderr.write("WARNING: No velocities to write.\n")
 
 
         #Bonds
