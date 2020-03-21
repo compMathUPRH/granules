@@ -6,7 +6,7 @@
 
 
   Part of granules Version 0.1.0, October, 2019
-    Copyright 2019: José O.  Sotero Esteva, Lyxaira M. Glass Rivera, 
+    Copyright 2019: José O.  Sotero Esteva, Lyxaira M. Glass Rivera, Lemuel I. Rivera Cantú
     Computational Science Group, Department of Mathematics, 
     University of Puerto Rico at Humacao 
     <jose.sotero@upr.edu>.
@@ -82,6 +82,7 @@ class LammpsBodySection(pd.DataFrame):
     
         #Almacenar numeros de columnas
         columns = list(self.columns)  
+        
         #Separar la data para almacenar en diccionario
         dtable = {col:[] for col in columns}
         
@@ -112,933 +113,72 @@ class LammpsBodySection(pd.DataFrame):
 
 #===================================================================
 
-class AtomPropertySection(LammpsBodySection):
-    pass
-
-class MolecularTopologySections(LammpsBodySection):
-    pass
-
-class ForceFieldSection(LammpsBodySection):
-    pass
-
-#===================================================================
-   
-class AtomsDF(AtomPropertySection):
-    def __init__(self,data=None, dtype=None, copy=False):
-        dtypes = {'aID':[0], 'Mol_ID':[0], 'aType':[0], 'Q':[0.0], 
-                  'X':[0.0], 'Y':[0.0], 'Z':[0.0], 'Nx':[0], 'Ny':[0], 'Nz':[0]}   
-        super(AtomsDF, self).__init__(data=dtypes, copy=copy, columns=['aID', 'Mol_ID', 'aType', 'Q', 
-                  'X', 'Y', 'Z', 'Nx', 'Ny', 'Nz'])
-        super(AtomsDF, self).__init__(self.drop([0]))
-
-    def setFromPSF(self, charmm):
-        ''' Extracts info from ATOMS object of a PSF object into self.
-
-        Parameter
-        -----------------
-        charmm : NAMDdata
-            NAMDdata object
-        '''
-
-        charmmTypeToInt = detectAtomTypes(charmm)
-        #print(charmmTypeToInt)
-        #print(atom_types['Type'].map(charmmTypeToInt))
-
-        # extract info from charmm
-        sel_psf     = charmm.psf.atoms[['ID', 'Type', 'Charge']].set_index('ID')
-        #print(sel_psf)
-        sel_pdb     = charmm.pdb[['ID','x','y','z']].set_index('ID')
-        #print(sel_pdb)
-        sel         = sel_pdb.join(sel_psf)
-        #print(sel)        
-        sel['aType'] = sel_psf['Type'].map(charmmTypeToInt)
-        #print(sel)
-        sel.reset_index(inplace=True)
-        #print(sel)        
-        sel         .rename(columns={"Charge":"Q",'ID':'aID'}, inplace=True)
-
-        # add remining columns
-        sel['Mol_ID'] = np.ones((len(sel), 1), dtype=np.int8)
-        sel['Nx']     = np.zeros((len(sel), 1))
-        sel['Ny']     = np.zeros((len(sel), 1))
-        sel['Nz']     = np.zeros((len(sel), 1))
-        sel['ID']     = np.arange(1, len(sel)+1)
-        #print(sel[np.isfinite(sel['aType'])])
-        # rearrange columns
-        sel = sel[['aID', 'Mol_ID', 'aType', 'Q', 'x', 'y', 'z', 'Nx', 'Ny', 'Nz']]
-        
-        #sel.reset_index(inplace=True)
-        #print("sel = ", sel.dtypes)
-        super(AtomsDF, self).__init__(sel.astype({
-                     'Mol_ID' :int,
-                     'aType' :int,
-                     'Q' :float,
-                     'x' :float,
-                     'y' :float,
-                     'z' :float,
-                     'Nx' :int,
-                     'Ny' :int,
-                     'Nz' : int
-                    }))
-        #print(self.dtypes)
-
-
-class MassesDF(AtomPropertySection):
-    def __init__(self,data=None, dtype=None, copy=False):
-        if data  is None:
-            dtypes = {'aType':[0], 'Mass':[0.0]}
-            super(MassesDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
-            super(MassesDF, self).__init__(self.drop([0]))
- 
-    def setFromPSF(self, psf_atoms, atoms):
-        ''' Extracts info from ATOMS object of a PSF object into self.
-
-        Parameter
-        -----------------
-        psf_atoms : PSF.ATOMS
-            a PSF.ATOMS object
-
-        atoms     : AtomsDF
-            an AtomsDF object
-        '''
-
-        # extract info from charmm and LAMMPS
-        sel_psf  = psf_atoms[['ID', 'Mass']].set_index('ID')
-        sel_self = atoms[['aID', 'aType']].set_index('aID').copy()
-        sel      = sel_self.join(sel_psf).drop_duplicates().reset_index()
-
-        # rename columns
-        sel      .drop(columns='aID', inplace=True)
-        #sel      .rename(columns={"Type":"mID"}, inplace=True)
-        #print(sel.dtypes)
-
-        super(MassesDF, self).__init__(sel)
-
-
-class VelocitiesDF(AtomPropertySection):
-    def __init__(self,data=None, dtype=None, copy=False):
-        dtypes = {'vID':[0], 'Vx':[0.0], 'Vy':[0.0], 'Vz':[0.0]}
-        super(VelocitiesDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
-        super(VelocitiesDF, self).__init__(self.drop([0]))
-   
-    def setToZero(self, atoms):
-        ''' Sets velocitis of atoms to zero.
-
-        Parameter
-        -----------------
-        atoms     : AtomsDF
-            an AtomsDF object
-        '''
-
-        # extract info from LAMMPS
-        sel = atoms[['aID']].copy().rename(columns={'aID':'vID'})
-        #sel.rename(columns={'aID':'vID'}, inplace=True)
-        sel['Vx']     = np.zeros((len(sel), 1))
-        sel['Vy']     = np.zeros((len(sel), 1))
-        sel['Vz']     = np.zeros((len(sel), 1))
-        #print("VelocitiesDF sel = ", sel.dtypes)
-
-        super(VelocitiesDF, self).__init__(sel)
-
-#===================================================================
-
-class AnglesDF(MolecularTopologySections):
-    def __init__(self,data=None, dtype=None, copy=False):
-        dtypes = {'anID':[0], 'anType':[0], 'Atom1':[0], 'Atom2':[0], 'Atom3':[0]}
-        super(AnglesDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
-        super(AnglesDF, self).__init__(self.drop([0]))
-
-    def setFromPSF(self, charmm):
-        ''' Extracts info from ATOMS object of a PSF object into self.
-
-        Parameter
-        -----------------
-        charmm : NAMDdata
-            NAMDdata object
-        '''
-
-        # extract info from charmm
-        psf_types   = charmm.psf.atoms[['ID', 'Type']].set_index('ID').to_dict()['Type']
-        #print(psf_types)
-
-        # substitute atoms numbers with charmm atom types
-        angles     = charmm.psf.angles.copy()
-        angles['atom1'] = angles['atom1'].map(psf_types)
-        angles['atom2'] = angles['atom2'].map(psf_types)
-        angles['atom3'] = angles['atom3'].map(psf_types)
-        angles['atuple'] = list(zip(angles.atom1, angles.atom2, angles.atom3))
-        angles.drop(columns=['atom1', 'atom2', 'atom3'], inplace=True)
-        #print(angles)
-
-        # build translation dict
-        btypes = angles.copy().drop_duplicates(inplace=False)
-        #print(btypes)
-        btypes['ID'] = np.arange(1, len(btypes)+1)
-        btypes.set_index('atuple', inplace=True)
-        btypeToInt = btypes.to_dict()['ID']
-        #print(btypeToInt)
-        btypes.reset_index(inplace=True)
-
-        # final table
-        angles['ID'] = np.arange(1, len(angles)+1)
-        angles['Type'] = angles['atuple'].map(btypeToInt)
-        angles.drop(columns=['atuple'], inplace=True)
-        angles['Atom1'] = charmm.psf.angles.copy()['atom1']
-        angles['Atom2'] = charmm.psf.angles.copy()['atom2']
-        angles['Atom3'] = charmm.psf.angles.copy()['atom3']
-
-        angles.rename(columns={'ID':'anID', 'Type':'anType'}, inplace=True)
-        #print(angles)
-
-        super(AnglesDF, self).__init__(angles)
-        #print(self.dtypes)
-
-class BondsDF(MolecularTopologySections):
-    def __init__(self,data=None, dtype=None, copy=False):
-        dtypes = {'bID':[0], 'bType':[0], 'Atom1':[0], 'Atom2':[0]}     
-        super(BondsDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
-        super(BondsDF, self).__init__(self.drop([0]))
-
-    def setFromPSF(self, charmm):
-        ''' Extracts info from ATOMS object of a PSF object into self.
-
-        Parameter
-        -----------------
-        charmm : NAMDdata
-            NAMDdata object
-        '''
-
-        # extract info from charmm
-        psf_types   = charmm.psf.atoms[['ID', 'Type']].set_index('ID').to_dict()['Type']
-        #print(psf_types)
-
-        # substitute atoms numbers with charmm atom types
-        bonds     = charmm.psf.bonds.copy()
-        bonds['atom1'] = bonds['atom1'].map(psf_types)
-        bonds['atom2'] = bonds['atom2'].map(psf_types)
-        bonds['atuple'] = list(zip(bonds.atom1, bonds.atom2))
-        bonds.drop(columns=['atom1', 'atom2'], inplace=True)
-        #print(bonds)
-
-        # build translation dict
-        btypes = bonds.copy().drop_duplicates(inplace=False)
-        #print(btypes)
-        btypes['ID'] = np.arange(1, len(btypes)+1)
-        btypes.set_index('atuple', inplace=True)
-        btypeToInt = btypes.to_dict()['ID']
-        #print(btypeToInt)
-        btypes.reset_index(inplace=True)
-
-        # final table
-        bonds['ID'] = np.arange(1, len(bonds)+1)
-        bonds['Type'] = bonds['atuple'].map(btypeToInt)
-        bonds.drop(columns=['atuple'], inplace=True)
-        bonds['Atom1'] = charmm.psf.bonds.copy()['atom1']
-        bonds['Atom2'] = charmm.psf.bonds.copy()['atom2']
-
-        bonds.rename(columns={'ID':'bID', 'Type':'bType'}, inplace=True)
-        #print(bonds)
-
-        super(BondsDF, self).__init__(bonds)
-        #print(self.dtypes)
-
-
-       
-class DihedralsDF(MolecularTopologySections):
-    def __init__(self,data=None, dtype=None, copy=False):
-        dtypes = {'dID':[0], 'dType':[0], 'atom1':[0], 'atom2':[0], 'atom3':[0], 'atom4':[0]}
-        super(DihedralsDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
-        super(DihedralsDF, self).__init__(self.drop([0]))
-
-    def setFromPSF(self, charmm):
-        ''' Extracts info from ATOMS object of a PSF object into self.
-
-        Parameter
-        -----------------
-        charmm : NAMDdata
-            NAMDdata object
-        '''
-
-        # extract info from charmm
-        psf_types   = charmm.psf.atoms[['ID', 'Type']].set_index('ID').to_dict()['Type']
-        #print(psf_types)
-
-        # substitute atoms numbers with charmm atom types
-        dihes     = charmm.psf.dihedrals.copy()
-        #print(charmm.psf.dihedrals)
-        dihes['atom1'] = dihes['atom1'].map(psf_types)
-        dihes['atom2'] = dihes['atom2'].map(psf_types)
-        dihes['atom3'] = dihes['atom3'].map(psf_types)
-        dihes['atom4'] = dihes['atom4'].map(psf_types)
-        dihes['atuple'] = list(zip(dihes.atom1, dihes.atom2, dihes.atom3, dihes.atom4))
-        dihes.drop(columns=['atom1', 'atom2', 'atom3', 'atom4'], inplace=True)
-        #print(dihes)
-
-        # build translation dict
-        btypes = dihes.copy().drop_duplicates(inplace=False)
-        #print(btypes)
-        btypes['ID'] = np.arange(1, len(btypes)+1)
-        btypes.set_index('atuple', inplace=True)
-        btypeToInt = btypes.to_dict()['ID']
-        #print(btypeToInt)
-        btypes.reset_index(inplace=True)
-
-        # final table
-        dihes['ID'] = np.arange(1, len(dihes)+1)
-        dihes['Type'] = dihes['atuple'].map(btypeToInt)
-        dihes.drop(columns=['atuple'], inplace=True)
-        dihes['Atom1'] = charmm.psf.dihedrals.copy()['atom1']
-        dihes['Atom2'] = charmm.psf.dihedrals.copy()['atom2']
-        dihes['Atom3'] = charmm.psf.dihedrals.copy()['atom3']
-        dihes['Atom4'] = charmm.psf.dihedrals.copy()['atom4']
-
-        dihes.rename(columns={'ID':'dID', 'Type':'dType'}, inplace=True)
-        #print(dihes)
-
-        super(DihedralsDF, self).__init__(dihes)
-        #print(self.dtypes)
-
-
-class ImpropersDF(MolecularTopologySections):
-    def __init__(self,data=None, dtype=None, copy=False):
-        dtypes = {'iID':[0], 'iType':[0], 'atom1':[0], 'atom2':[0], 'atom3':[0], 'atom4':[0]}
-        super(ImpropersDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
-        super(ImpropersDF, self).__init__(self.drop([0]))
-
-    def setFromPSF(self, charmm):
-        ''' Extracts info from ATOMS object of a PSF object into self.
-
-        Parameter
-        -----------------
-        charmm : NAMDdata
-            NAMDdata object
-        '''
-
-        # extract info from charmm
-        psf_types   = charmm.psf.atoms[['ID', 'Type']].set_index('ID').to_dict()['Type']
-        #print(psf_types)
-
-        # substitute atoms numbers with charmm atom types
-        impros     = charmm.psf.impropers.copy()
-        impros['atom1'] = impros['atom1'].map(psf_types)
-        impros['atom2'] = impros['atom2'].map(psf_types)
-        impros['atom3'] = impros['atom3'].map(psf_types)
-        impros['atom4'] = impros['atom4'].map(psf_types)
-        impros['atuple'] = list(zip(impros.atom1, impros.atom2, impros.atom3))
-        impros.drop(columns=['atom1', 'atom2', 'atom3', 'atom4'], inplace=True)
-        #print(impros)
-
-        # build translation dict
-        btypes = impros.copy().drop_duplicates(inplace=False)
-        #print(btypes)
-        btypes['ID'] = np.arange(1, len(btypes)+1)
-        btypes.set_index('atuple', inplace=True)
-        btypeToInt = btypes.to_dict()['ID']
-        #print(btypeToInt)
-        btypes.reset_index(inplace=True)
-
-        # final table
-        impros['ID'] = np.arange(1, len(impros)+1)
-        impros['Type'] = impros['atuple'].map(btypeToInt)
-        impros.drop(columns=['atuple'], inplace=True)
-        impros['Atom1'] = charmm.psf.impropers.copy()['atom1']
-        impros['Atom2'] = charmm.psf.impropers.copy()['atom2']
-        impros['Atom3'] = charmm.psf.impropers.copy()['atom3']
-        impros['Atom4'] = charmm.psf.impropers.copy()['atom4']
-
-        impros.rename(columns={'ID':'iID', 'Type':'iType'}, inplace=True)
-        #print(impros)
-
-        super(ImpropersDF, self).__init__(impros)
-        #print(self.dtypes)
-
-
-#===================================================================
-
-class PairCoeffs(ForceFieldSection):
-    def __init__(self,data=None, dtype=None, copy=False):
-        super(PairCoeffs, self).__init__(data=data, columns=['aType', 'epsilon', 'sigma', 'epsilon1_4', 'sigma1_4'], dtype=dtype, copy=copy)
-
-    def setFromPSF(self, charmm, mass):
-        ''' Extracts info from PRM and PSF objects into self.
-
-        Parameter
-        -----------------
-        charmm : NAMDdata
-            NAMDdata object
-
-        mass : MassDF
-            AtomsDF object associateed with these PairCoeffs
-        '''
-
-        # extract info from charmm
-        psf_types   = charmm.psf.atoms[['ID', 'Type']].set_index('ID').to_dict()['Type']
-        #print(psf_types)
-
-        # substitute atoms numbers with charmm atom types
-        nonbonded       = mass.copy()
-        nonbonded['types'] = nonbonded.aType.map(psf_types)
-        nonbonded.drop(columns=['Mass'], inplace=True)
-        #print(nonbonded)
-
-        prmFF = charmm.prm.nonbonded.getCoeffs()
-        #print("Aqui el DF: ",prmFF)
-
-        # add charge and energy to atoms
-        nonbonded['epsilon'] = nonbonded.types.map(prmFF.epsilon.to_dict())
-        nonbonded['sigma'] = nonbonded.types.map(prmFF.Rmin2.to_dict())
-        nonbonded['epsilon1_4'] = nonbonded.types.map(prmFF.epsilon.to_dict())
-        nonbonded['sigma1_4'] = nonbonded.types.map(prmFF.Rmin2.to_dict())
-        nonbonded.drop(columns=['types'], inplace=True)
-
-        nonbonded.rename(columns={'aID':'aType'}, inplace=True)
-        #print(nonbonded)
-
-        super(PairCoeffs, self).__init__(nonbonded)
-        #print("\nPairCoeffs Nans:\n",nonbonded.isna().sum())
-        #print(self.dtypes)
-
-
-
-class AngleCoeffs(ForceFieldSection):
-    def __init__(self,data=None, dtype=None, copy=False):
-        super(AngleCoeffs, self).__init__(data=data, columns=['anType', 'Ktheta', 'Theta0', 'Kub', 'S0'], dtype=dtype, copy=copy)
-
-    def setFromPSF(self, charmm, angles):
-        ''' Extracts info from PRM and PSF objects into self.
-
-        Parameter
-        -----------------
-        charmm : NAMDdata
-            NAMDdata object
-
-        angles : AnglesDF
-            AnglesDF object associateed with these AngleCoeffs
-        '''
-
-        # extract info from charmm
-        psf_types   = charmm.psf.atoms[['ID', 'Type']].set_index('ID').to_dict()['Type']
-        #print(psf_types)
-
-        # substitute atoms numbers with charmm atom types
-        angles     = angles.copy()
-        angles.Atom1 = angles.Atom1.map(psf_types)
-        angles.Atom2 = angles.Atom2.map(psf_types)
-        angles.Atom3 = angles.Atom3.map(psf_types)
-        angles['atuple'] = list(zip(angles.Atom1, angles.Atom2, angles.Atom3))
-        angles.drop(columns=['anID', 'Atom1', 'Atom2', 'Atom3'], inplace=True)
-        angles.drop_duplicates(inplace=True)
-
-        prmFF = charmm.prm.angles.getCoeffs()
-
-        # add Kb and b0 to bonds
-        angles['Ktheta'] = angles.atuple.map(prmFF.Ktheta.to_dict())
-        #angles['Ktheta'] = angles.atuple.apply(findWithX, args=(prmFF.Ktheta.to_dict(),) )
-        angles['Theta0'] = angles.atuple.map(prmFF.Theta0.to_dict())
-        angles['Kub'] = angles.atuple.map(prmFF.Kub.to_dict())
-        angles['S0'] = angles.atuple.map(prmFF.S0.to_dict())
-        angles.drop(columns=['atuple'], inplace=True)
-        #print(angles)
-        #print(angles.isna().sum())
-
-        angles.fillna(0.0, inplace=True)
-
-        angles.rename(columns={'ID':'anType'}, inplace=True)
-
-        super(AngleCoeffs, self).__init__(angles)
-        #print("\nAngleCoeffs Nans:\n",angles.isna().sum())
-        #print("Nans:\n",self)
-
-
-
-class BondCoeffs(ForceFieldSection):
-    def __init__(self,data=None, dtype=None, copy=False):
-        super(BondCoeffs, self).__init__(data=data, columns=['bType','Spring_Constant','Eq_Length'], dtype=dtype, copy=copy)
-
-    def setFromPSF(self, charmm, bonds):
-        ''' Extracts info from PRM and PSF objects into self.
-
-        Parameter
-        -----------------
-        charmm : NAMDdata
-            NAMDdata object
-
-        bonds : BondsDF
-            BondsDF object associateed with these BondCoeffs
-        '''
-
-        # extract info from charmm
-        psf_types   = charmm.psf.atoms[['ID', 'Type']].set_index('ID').to_dict()['Type']
-        #print(psf_types)
-
-        # substitute atoms numbers with charmm atom types
-        bonds     = bonds.copy()
-        bonds.Atom1 = bonds.Atom1.map(psf_types)
-        bonds.Atom2 = bonds.Atom2.map(psf_types)
-        bonds['atuple'] = list(zip(bonds.Atom1, bonds.Atom2))
-        bonds.drop(columns=['bID', 'Atom1', 'Atom2'], inplace=True)
-        bonds.drop_duplicates(inplace=True)
-        #print(bonds)
-
-        prmFF = charmm.prm.bonds.getCoeffs()
-
-
-        # add Kb and b0 to bonds
-        bonds['Spring_Constant'] = bonds.atuple.map(prmFF.Kb.to_dict())
-        bonds['Eq_Length'] = bonds.atuple.map(prmFF.b0.to_dict())
-        bonds.drop(columns=['atuple'], inplace=True)
-        #print(bonds)
-        #print("\nBondCoeffs Nans:\n",bonds.isna().sum())
-
-        bonds.rename(columns={'ID':'bType'}, inplace=True)
-
-        super(BondCoeffs, self).__init__(bonds)
-        #print(self.dtypes)
-
-
-class DihedralCoeffs(ForceFieldSection):
-    def __init__(self,data=None, dtype=None, copy=False):
-        super(DihedralCoeffs, self).__init__(data=data, columns=['dType', 'Kchi', 'n', 'delta'], dtype=dtype, copy=copy)
-
-    def setFromPSF(self, charmm, dihedrals):
-        ''' Extracts info from PRM and PSF objects into self.
-
-        Parameter
-        -----------------
-        charmm : NAMDdata
-            NAMDdata object
-
-        dihedrals : DihedralsDF
-            AnglesDF object associateed with these AngleCoeffs
-        '''
-
-        # extract info from charmm
-        psf_types   = charmm.psf.atoms[['ID', 'Type']].set_index('ID').to_dict()['Type']
-        #print(psf_types)
-
-        # substitute atoms numbers with charmm atom types
-
-        dihedrals     = dihedrals.copy()
-        dihedrals.Atom1 = dihedrals.Atom1.map(psf_types)
-        dihedrals.Atom2 = dihedrals.Atom2.map(psf_types)
-        dihedrals.Atom3 = dihedrals.Atom3.map(psf_types)
-        dihedrals.Atom4 = dihedrals.Atom4.map(psf_types)
-        dihedrals['atuple'] = list(zip(dihedrals.Atom1, dihedrals.Atom2, dihedrals.Atom3, dihedrals.Atom4))
-        dihedrals.drop(columns=['dID', 'Atom1', 'Atom2', 'Atom3', 'Atom4'], inplace=True)
-        dihedrals.drop_duplicates(inplace=True)
-        #print(dihedrals)
-
-        prmFF = charmm.prm.dihedrals.getCoeffs()
-        #print(prmFF)
-
-        # add Kb and b0 to bonds
-        #dihedrals['Kchi'] = dihedrals.atuple.map(prmFF.Kchi.to_dict())
-        #dihedrals['n'] = dihedrals.atuple.map(prmFF.n.to_dict())
-        #dihedrals['delta'] = dihedrals.atuple.map(prmFF.delta.to_dict())
-        dihedrals['Kchi'] = dihedrals.atuple.apply(findWithX, args=(prmFF.Kchi.to_dict(),) )
-        dihedrals['n'] = dihedrals.atuple.apply(findWithX, args=(prmFF.n.to_dict(),) )
-        dihedrals['delta'] = dihedrals.atuple.apply(findWithX, args=(prmFF.delta.to_dict(),) )
-        #print(dihedrals)
-        dihedrals.drop(columns=['atuple'], inplace=True)
-        #print("\nDihedralCoeffs Nans:\n",dihedrals.isna().sum())
-
-        dihedrals = dihedrals.dropna()
-        dihedrals['Type'] = dihedrals.index = np.arange(1, len(dihedrals)+1)
-        dihedrals['Weighting_Factor'] = float(random.randint(0,2)/2)    #Is given randomly for now
-
-        dihedrals.rename(columns={'ID':'dType'}, inplace=True)
-
-        super(DihedralCoeffs, self).__init__(dihedrals.astype({'Kchi':float, 'n':int, 'delta':int,'Weighting_Factor':float}))
-        #print("DihedralCoeffs\n",self.dtypes)
-
-
-class ImproperCoeffs(ForceFieldSection):
-    def __init__(self,data=None, dtype=None, copy=False):
-        super(ImproperCoeffs, self).__init__(data=data, columns=['iType', 'Kchi', 'n', 'delta'], dtype=dtype, copy=copy)
-
-    def setFromPSF(self, charmm, impropers):
-        ''' Extracts info from PRM and PSF objects into self.
-
-        Parameter
-        -----------------
-        charmm : NAMDdata
-            NAMDdata object
-
-        impropers : ImpropersDF
-            AnglesDF object associateed with these AngleCoeffs
-        '''
-
-        # extract info from charmm
-        psf_types   = charmm.psf.atoms[['ID', 'Type']].set_index('ID').to_dict()['Type']
-        #print(psf_types)
-
-        # substitute atoms numbers with charmm atom types
-
-        impropers     = impropers.copy()
-        impropers.Atom1 = impropers.Atom1.map(psf_types)
-        impropers.Atom2 = impropers.Atom2.map(psf_types)
-        impropers.Atom3 = impropers.Atom3.map(psf_types)
-        impropers.Atom4 = impropers.Atom4.map(psf_types)
-        impropers['atuple'] = list(zip(impropers.Atom1, impropers.Atom2, impropers.Atom3, impropers.Atom4))
-        impropers.drop(columns=['iID', 'Atom1', 'Atom2', 'Atom3', 'Atom4'], inplace=True)
-        impropers.drop_duplicates(inplace=True)
-        #print(impropers)
-
-        prmFF = charmm.prm.impropers.getCoeffs()
-        #print(prmFF)
-
-        # add Kb and b0 to bonds
-        impropers['Kpsi'] = impropers.atuple.apply(findWithX, args=(prmFF.Kpsi.to_dict(),) )
-        impropers['psi0'] = impropers.atuple.apply(findWithX, args=(prmFF.psi0.to_dict(),) )
-        #impropers['Kpsi'] = impropers.atuple.map(prmFF.Kpsi.to_dict())
-        #impropers['psi0'] = impropers.atuple.map(prmFF.psi0.to_dict())
-        #print(impropers)
-        impropers.drop(columns=['atuple'], inplace=True)
-        #print("\nImproperCoeffs Nans:\n",impropers.isna().sum())
-
-        impropers['Type'] = impropers.index = np.arange(1, len(impropers)+1)
-
-        impropers.rename(columns={'ID':'iType'}, inplace=True)
-
-        super(ImproperCoeffs, self).__init__(impropers)
-        #print(self)
- 
-#===================================================================
-#CLASES TEMPORERAS
-        
-class NonbDF(MolecularTopologySections):
-    def __init__(self,data=None, dtype=None, copy=False):
-        super(NonbDF, self).__init__(data=data, copy=copy, columns=['ID','Type1','Force','Charge','Energy'])
-
-class BondDF(MolecularTopologySections):
-    def __init__(self,data=None, dtype=None, copy=False):
-        super(BondDF, self).__init__(data=data, copy=copy, columns=['ID','Type1','Type2','Spring_Constant','Eq_Length'])
-
-class AnglDF(MolecularTopologySections):
-    def __init__(self,data=None, dtype=None, copy=False):
-        super(AnglDF, self).__init__(data=data, copy=copy, columns=['ID','Type1','Type2','Type3','Spring_Constant','Eq_Angle'])
-
-class ImprDF(MolecularTopologySections):
-    def __init__(self,data=None, dtype=None, copy=False):
-        super(ImprDF, self).__init__(data=data, copy=copy, columns=['ID','Atom','Types','Kpsi','Psi0'])
-
-class DiheDF(MolecularTopologySections):
-    def __init__(self,data=None, dtype=None, copy=False):
-        super(DiheDF, self).__init__(data=data, copy=copy, columns=['ID','Type1','Type2','Type3','Type4','Spring_Constant','Multiplicity','Eq_Angle'])
-
-class PDB_File(MolecularTopologySections):
-    def __init__(self,data=None, dtype=None, copy=False):
-        super(PDB_File, self).__init__(data=data, copy=copy, columns=['RecName','ID','Name','AltLoc','ResName','ChainID','ResSeq','iCode','x','y','z','Occupancy','TempFactor','Element','Charge'])
-
-class PSF_File(MolecularTopologySections):
-    def __init__(self,data=None, dtype=None, copy=False):
-        super(PSF_File, self).__init__(data=data, copy=copy, columns=['ID','RecName','ChainID', 'ResName', 'Name', 'Type', 'Charge', 'Mass', 'Unused'])
-
-#=================================================================== 
-
-class LammpsData():
-    ''' Holds LAMMPS data.
-        See "Format of a data file" section in https://lammps.sandia.gov/doc/read_data.html
-    '''
-
+class AtomPropertyData():
     def __init__(self):
-
-        '''
-        self['Ellipsoids']  = EllipsoidsDF()
-        selflines       = LinesDF()
-        self.bodies      = BodiesDF()
-        self.triangles   = TrianglesDF()
-        self.bodies   = BodiesDF()
-        '''
-
+        
         # atom-property sections
         self.atoms       = AtomsDF()
         self.velocities  = VelocitiesDF()
         self.masses      = MassesDF()
-
+               
+    def setFromPSF(self,charmm): 
+        '''Llama a la funcion setFromPSF() de las clases de la clase AtomPropertyData,
+            asignadas en los atributo.'''
+            
+        self.atoms.setFromPSF(charmm)
+        self.velocities.setToZero(self.atoms)
+        self.masses.setFromPSF(charmm.psf.atoms,self.atoms)
+  
+class MolecularTopologyData():
+    def __init__(self):
+        
         # molecular topology sections
-        self.bonds       = BondsDF()
         self.angles      = AnglesDF()
+        self.bonds       = BondsDF()
         self.dihedrals   = DihedralsDF()
         self.impropers   = ImpropersDF()
+        
+    def setFromPSF(self,charmm): 
+        '''Llama a la funcion setFromPSF() de las clases de la clase MolecularTopolyData,
+            asignadas en los atributo.'''
+        
+        # molecular topology sections
+        self.bonds.setFromPSF(charmm)
+        self.angles.setFromPSF(charmm)
+        self.dihedrals.setFromPSF(charmm)
+        self.impropers.setFromPSF(charmm)
 
-        #  force field sections
-        #self.pairIJCoeffs           = PairDF()
+  
+
+class ForceFieldData():
+     def __init__(self):
+
+        #force field sections
+        #self.angleAngleCoeffs       
+        #self.angleAngleTorsionCoeffs
+        #self.angleTorsionCoeffs     
+	
+        #self.bondAngleCoeffs        
+        #self.bondBond13Coeffs       
+        
+        #self.middleBondTorsion      
+        #self.endBondTorsionCoeffs  
+        self.angleCoeffs           = AngleCoeffs()
         self.bondCoeffs             = BondCoeffs()
-        self.pairCoeffs             = PairCoeffs()
-        self.angleCoeffs            = AngleCoeffs()
+        
         self.dihedralCoeffs         = DihedralCoeffs()
         self.improperCoeffs         = ImproperCoeffs()
-
-        # class 2 force field sections
-        self.bondCoeffs         = BondCoeffs()
-        self.bondAngleCoeffs        = ForceFieldSection()
-        self.middleBondTorsion      = ForceFieldSection()
-        self.angleAngleCoeffs       = ForceFieldSection()
-        self.bondBond13Coeffs       = ForceFieldSection()
-        self.angleTorsionCoeffs     = ForceFieldSection()
-        self.endBondTorsionCoeffs   = ForceFieldSection()
-        self.angleAngleTorsionCoeffs= ForceFieldSection()
-    
-
-    def read(self, filename):
-    
-        #Abrir el archivo para leer datos
-        arch = open(filename, 'r')
-        serial = 1
-        ind = 0
-        num = []
-        tipo = []
-        caja = []
+        self.pairCoeffs             = PairCoeffs()
         
-        l = LammpsData()
-               
-        #Prepare cycle to enhance process by removing CAPS and spaces to get DF keyword. 
-        keywords = ["Masses","Pair Coeffs","Bond Coeffs","Angle Coeffs","Dihedral Coeffs",
-                    "Improper Coeffs","Atoms","Velocities","Bonds","Angles","Dihedrals","Impropers"]
-
-        for linea in arch:
-            valid = True
-            
-            key = linea.strip()
-            data = []
-            #Si encuentro la seccion deseada en el archivo
-            if key in keywords:
-            
-                #Comienzo a almacenar la informacion
-                linea = next(arch)
-                linea = next(arch)   
-                       
-                #Almacenar la informacion mientras exista
-                while valid:      
-                    data.append(linea.split())
-                    #Prevenir error de iteracion cuando el archivo se acaba
-                    try: linea = next(arch)
-                    except(StopIteration):
-                        valid = False
-                        break
-                    #Si se acaban los datos del parametro, vamos al proximo
-                    if linea.strip() == '':
-                        valid = False
-                       
-                #Almacenar toda la data de esa seccion
-                if key == 'Masses': self.masses.add(data)
-                if key == 'Pair Coeffs': self.pairCoeffs.add(data)
-                if key == 'Bond Coeffs': self.bondCoeffs.add(data)
-                if key == 'Angle Coeffs': self.angleCoeffs.add(data)                
-                if key == 'Dihedral Coeffs': self.dihedralCoeffs.add(data)
-                if key == 'Improper Coeffs':self.improperCoeffs.add(data)
-                if key == 'Atoms': self.atoms.add(data)                
-                if key == 'Velocities': self.velocities.add(data)   
-                if key == 'Bonds': self.bonds.add(data)
-                if key == 'Angles': self.angles.add(data)                
-                if key == 'Dihedrals': self.dihedrals.add(data)
-                if key == 'Impropers':self.impropers.add(data)                
-              
-        arch.close()                
-           
-                        
-                
-                
-                
-        '''
-        if linea[0:18] == 'LAMMPS Description':
-
-            #Esta linea solo me indica que comienza la descripcion
-            #Por lo tanto, paso a la proxima linea con informacion
-            linea = next(arch)
-            linea = next(arch)
-
-            #Almacenar la informacion mientras exista
-            while valid:
-                
-                #Recoger los datos, separados por espacios
-                n, t = linea.split()
-                num.append(int(n))
-                tipo.append(t.capitalize())
-
-                linea = next(arch)
-
-                #Si se acaban los datos del parametro, vamos al proximo
-                if linea.strip() == '':
-                    linea = next(arch) 
-
-                    #La masa tiene el mismo valor que este
-                    n = linea.split()
-                    num.append(int(n[0]))
-
-                    while valid:
-                        
-                        #Recoger los datos, separados por espacios
-                        n = linea.split()
-                        num.append(int(n[0]))
-                        
-                        linea = next(arch) 
-                        if linea.strip() == '':
-                            #Cada atomo tiene atributos de velocidad  
-                            num.append(num[0])  
-                            valid = False  
-                            for i in range(3):
-                                linea = next(arch) 
-
-        #Identificar las siguientes
-        if linea.strip() == tipo[ind]:
-            if ind != len(tipo)-1:
-                ind += 1
-
-        #Si la inea esta vacia, viene informacion importante desconocida luego
-        if linea.strip() == '':
-            t = next(arch).strip()
-            if t not in tipo:
-                tipo.append(t.capitalize())
-            linea = next(arch)
-            
-        if linea[0:4] == 'BOND':
-            #Seguir llenando el diccionario
-
-            SecDict['bonds']= linea[0:4] 
-
-            #Esta linea solo me indica que tipo de parametro es
-            #Por lo tanto, paso a la proxima
-            linea = next(arch)
-
-            #Almacenar la informacion mientras exista
-            while valid:
-                
-                #Recoger los datos, separados por espacios
-                var1, var2, var3, var4 = linea.split()
-                SecDict['Type1']= var1
-                SecDict['Force']= float(var2)
-                SecDict['Charge']= float(var3)
-                SecDict['Energy']= float(var4)
-                
-                #Enviar datos al DataFrame
-                self.loc[serial] = SecDict
-                
-                #Prevenir error de iteracion cuando el archivo se acaba
-                try: 
-                    linea = next(arch)
-                    serial += 1
-                except(StopIteration):
-                    valid = False
-                    break
-
-                #Si se acaban los datos del parametro, culminamos el ciclo
-                if linea[:].strip() == '' or linea[6:8].strip() == '>':
-                    valid = False
-
-        if linea[0:4] == 'BOND':
-
-            #Seguir llenando el diccionario
-            SecDict['Section']=linea[0:4]  
-
-            #Esta linea solo me indica que tipo de parametro es
-            #Por lo tanto, paso a la proxima
-            linea = next(arch)
-
-            #Almacenar la informacion mientras exista
-            while valid:
-                
-                #Recoger los datos, separados por espacios
-                var1, var2, var3, var4 = linea.split()
-                SecDict['Type1']= var1
-                SecDict['Type2']= var2
-                SecDict['Spring_Constant']= float(var3)
-                SecDict['Eq_Length']= float(var4)
-                
-                #Enviar datos al DataFrame
-                self.loc[serial] = SecDict
-                
-                #Prevenir error de iteracion cuando el archivo se acaba
-                try: 
-                    linea = next(arch)
-                    serial += 1
-                except(StopIteration):
-                    valid = False
-                    break
-
-                #Si se acaban los datos del parametro, culminamos el ciclo
-                if linea[:].strip() == '' or linea[6:8].strip() == '>':
-                    valid = False
-
-
-        if linea[0:4] == 'ANGL':
-
-            #Seguir llenando el diccionario
-            SecDict['Section']=linea[0:4]   
-
-            #Esta linea solo me indica que tipo de parametro es
-            #Por lo tanto, paso a la proxima
-            linea = next(arch)
-
-            #Almacenar la informacion mientras exista
-            while valid:
-                
-                #Recoger los datos, separados por espacios
-                var1, var2, var3, var4, var5 = linea.split()
-                SecDict['Type1']= var1
-                SecDict['Type2']= var2
-                SecDict['Type3']= var3
-                SecDict['Spring_Constant']= float(var4)
-                SecDict['Eq_Angle']= float(var5)
-                
-                #Enviar datos al DataFrame
-                self.loc[serial] = SecDict
-                
-                #Prevenir error de iteracion cuando el archivo se acaba
-                try: 
-                    linea = next(arch)
-                    serial += 1
-                except(StopIteration):
-                    valid = False
-                    break
-
-                #Si se acaban los datos del parametro, culminamos el ciclo
-                if linea[:].strip() == '' or linea[6:8].strip() == '>':
-                    valid = False
-
-
-        if linea[0:4] == 'DIHE':
-
-            #Seguir llenando el diccionario
-            SecDict['Section']=linea[0:4]   
-
-            #Esta linea solo me indica que tipo de parametro es
-            #Por lo tanto, paso a la proxima
-            linea = next(arch)
-
-            #Almacenar la informacion mientras exista
-            while valid:
-                
-                #Recoger los datos, separados por espacios
-                var1, var2, var3, var4, var5, var6, var7 = linea.split()
-                SecDict['Type1']= var1
-                SecDict['Type2']= var2
-                SecDict['Type3']= var3
-                SecDict['Type4']= var4
-                SecDict['Spring_Constant']= float(var5)
-                SecDict['Multiplicity']= float(var6)
-                SecDict['Eq_Angle']= float(var7)
-                
-                #Enviar datos al DataFrame
-                self.loc[serial] = SecDict
-                
-                #Prevenir error de iteracion cuando el archivo se acaba
-                try: 
-                    linea = next(arch)
-                    serial += 1
-                except(StopIteration):
-                    valid = False
-                    break
-
-                #Si se acaban los datos del parametro, culminamos el ciclo
-                if linea[:].strip() == '' or linea[6:8].strip() == '>':
-                    valid = False
-    '''
-
-
-
-    def charmmNonBondEnergy(self):
+     def setFromPSF(self,charmm,atomproperty,topology): #añadi este codigo nuevo 
+        
+        self.pairCoeffs.setFromPSF(charmm, atomproperty.masses)
+        self.bondCoeffs.setFromPSF(charmm, topology.bonds)
+        self.angleCoeffs.setFromPSF(charmm, topology.angles)
+        self.dihedralCoeffs.setFromPSF(charmm, topology.dihedrals)
+        self.improperCoeffs.setFromPSF(charmm, topology.impropers)
+        
+     def charmmNonBondEnergy(self):
         ''' Computes CHARMM Lennard-Jones energy.
             Formula: Eps,i,j[(Rmin,i,j/ri,j)**12 - 2(Rmin,i,j/ri,j)**6]
                     Eps,i,j = sqrt(eps,i * eps,j)
@@ -1054,7 +194,8 @@ class LammpsData():
         NONB_CUTOFF = 13.0
 
         # generate all pairs of atoms IDs
-        atomIds = self.atoms[['aID']].copy()
+        atoms = self.atoms.copy() #Cambio
+        atomIds = atoms[['aID']]
         atomIds['key'] = np.ones(len(atomIds))
         atomIds = pd.merge(atomIds, atomIds, on='key')[['aID_x', 'aID_y']]
         atomIds = atomIds[atomIds['aID_x'] < atomIds['aID_y']]
@@ -1064,7 +205,7 @@ class LammpsData():
         # compute pairwise distances
         print(len(atomIds))
         from scipy.spatial.distance import pdist
-        atomIds['rij'] = pdist(self.atoms.set_index('aID')[['x', 'y', 'z']].values)
+        atomIds['rij'] = pdist(atoms.set_index('aID')[['x', 'y', 'z']].values)
         atomIds = atomIds[atomIds['rij'] < NONB_CUTOFF]
 
         # remove bonded atoms
@@ -1125,8 +266,9 @@ class LammpsData():
         return -np.sum(atomIds.epsilon * ((atomIds.sigma/atomIds.rij)**12 - (atomIds.sigma/atomIds.rij)**6)), \
                COULOMB * np.sum((atomIds.qi * atomIds.qj) / (atomIds.rij))
 
-    def charmmBondEnergy(self):
+     def charmmBondEnergy(self):
         ''' Computes CHARMM bond energy.
+
             Formula: sum K * (bij - b0)**2
         '''
         bi = self.bonds.set_index('Atom1').join(
@@ -1136,6 +278,7 @@ class LammpsData():
         bj = self.bonds.set_index('Atom2').join(
                 self.atoms.set_index('aID')
              )[['bID','x', 'y', 'z']].set_index('bID')
+
 
         bij = np.sqrt(np.sum((bi - bj) ** 2, axis='columns'))  # bonds lengths
 
@@ -1148,9 +291,10 @@ class LammpsData():
         return np.sum(K * (bij-b0)**2)
 
 
-    def charmmAngleEnergy(self):
+     def charmmAngleEnergy(self):
         ''' Computes CHARMM angle energy.
             Formula: sum K * (aij - a0)**2
+
         '''
         bi = self.angles.set_index('Atom1').join(
                 self.atoms.set_index('aID')
@@ -1182,7 +326,7 @@ class LammpsData():
 
         return np.sum(K * (angles-a0)**2)
 
-    def charmmDihedralsEnergy(self):
+     def charmmDihedralsEnergy(self):
         ''' Computes CHARMM angle energy.
             Formula: sum K * (1 + cos(n * x - d))
         '''
@@ -1231,7 +375,7 @@ class LammpsData():
         '''
 
 
-    def charmmNonBondForce(self):
+     def charmmNonBondForce(self,atomproperty,topologia):
         ''' Computes CHARMM Lennard-Jones energy.
             Formula: Eps,i,j[(Rmin,i,j/ri,j)**12 - 2(Rmin,i,j/ri,j)**6]
                     Eps,i,j = sqrt(eps,i * eps,j)
@@ -1247,7 +391,7 @@ class LammpsData():
         NONB_CUTOFF = 13.0
 
         # generate all pairs of atoms IDs
-        atomIds = self.atoms[['aID']].copy()
+        atomIds = atomproperty.atoms[['aID']].copy()
         atomIds['key'] = np.ones(len(atomIds))
         atomIds = pd.merge(atomIds, atomIds, on='key')[['aID_x', 'aID_y']]
         atomIds = atomIds[atomIds['aID_x'] < atomIds['aID_y']]
@@ -1257,13 +401,13 @@ class LammpsData():
         # compute pairwise distances
         print(len(atomIds))
         from scipy.spatial.distance import pdist
-        atomIds['rij'] = pdist(self.atoms.set_index('aID')[['x', 'y', 'z']].values)
+        atomIds['rij'] = pdist(atomproperty.atoms.set_index('aID')[['x', 'y', 'z']].values)
         atomIds = atomIds[atomIds['rij'] < NONB_CUTOFF]
 
         # remove bonded atoms
         print(len(atomIds))
         atomIds['p'] = list(zip(atomIds.aID_x, atomIds.aID_y))
-        bonds = self.bonds.copy()
+        bonds = topologia.bonds.copy()
         bonds['p'] = list(zip(bonds.Atom1, bonds.Atom2))
         atomIds = atomIds.set_index('p').join(bonds.set_index('p'))
         atomIds = atomIds[atomIds.bID.isna()][['aID_x','aID_y','nbID','rij']].reset_index(drop=True)
@@ -1272,7 +416,7 @@ class LammpsData():
 
         # remove angled atoms
         atomIds['p'] = list(zip(atomIds.aID_x, atomIds.aID_y))
-        angles = self.angles.copy()
+        angles = topologia.angles.copy()
         angles['p'] = list(zip(angles.Atom1, angles.Atom3))
         atomIds = atomIds.set_index('p').join(angles.set_index('p'))
         atomIds = atomIds[atomIds.anID.isna()][['aID_x','aID_y','nbID','rij']].reset_index(drop=True)
@@ -1280,12 +424,12 @@ class LammpsData():
         print(len(atomIds))
 
         # get atom types and charges
-        atomIds = atomIds.set_index('aID_x', drop=False).join(self.atoms[['aID', 'Q']].set_index('aID'))
+        atomIds = atomIds.set_index('aID_x', drop=False).join(atomproperty.atoms[['aID', 'Q']].set_index('aID'))
         atomIds.rename(columns={'Q':'qi'}, inplace=True)
-        atomIds = atomIds.join(self.atoms[['aID', 'aType']].set_index('aID')).reset_index(drop=True)
+        atomIds = atomIds.join(atomproperty.atoms[['aID', 'aType']].set_index('aID')).reset_index(drop=True)
         atomIds.rename(columns={'aType':'aiType'}, inplace=True)
-        atomIds = atomIds.set_index('aID_y', drop=False).join(self.atoms[['aID', 'Q']].set_index('aID'))
-        atomIds = atomIds.join(self.atoms[['aID', 'aType']].set_index('aID')).reset_index(drop=True)
+        atomIds = atomIds.set_index('aID_y', drop=False).join(atomproperty.atoms[['aID', 'Q']].set_index('aID'))
+        atomIds = atomIds.join(atomproperty.atoms[['aID', 'aType']].set_index('aID')).reset_index(drop=True)
         atomIds.rename(columns={'aType':'ajType', 'Q':'qj'}, inplace=True)
         print(len(atomIds))
 
@@ -1313,10 +457,10 @@ class LammpsData():
 
         print(atomIds.columns.values)
         bi = atomIds.set_index('aID_x').join(
-                self.atoms.set_index('aID')
+                atomproperty.atoms.set_index('aID')
              )[['nbID', 'x', 'y', 'z']].set_index('nbID')
         bj = atomIds.set_index('aID_y').join(
-                self.atoms.set_index('aID')
+                atomproperty.atoms.set_index('aID')
              )[['nbID', 'x', 'y', 'z']].set_index('nbID')
         
         bij = (bj - bi).div(atomIds.rij, axis=0)
@@ -1332,22 +476,23 @@ class LammpsData():
         return ff
 
 
-    def charmmBondForce(self):
+     def charmmBondForce(self,atomproperty,topologia):
         ''' Computes CHARMM bond energy.
             Formula: sum K * (bij - b0)**2
+
         '''
-        bi = self.bonds.set_index('Atom1').join(
-                self.atoms.set_index('aID')
+        bi = topologia.bonds.set_index('Atom1').join(
+                atomproperty.atoms.set_index('aID')
              )[['bID','x', 'y', 'z']].set_index('bID')
 
-        bj = self.bonds.set_index('Atom2').join(
-                self.atoms.set_index('aID')
+        bj = topologia.bonds.set_index('Atom2').join(
+                atomproperty.atoms.set_index('aID')
              )[['bID','x', 'y', 'z']].set_index('bID')
 
         bij = bj - bi  # bonds
         rbij = np.sqrt(np.sum((bij) ** 2, axis='columns'))  # bonds lengths
 
-        coeffs = self.bonds[['bID','bType']].set_index('bType').join(
+        coeffs = topologia.bonds[['bID','bType']].set_index('bType').join(
                         self.bondCoeffs.set_index('bType')
                  ).reset_index(drop=True)
         K = coeffs[['bID','Spring_Constant']].set_index('bID').Spring_Constant
@@ -1359,8 +504,8 @@ class LammpsData():
         wi = bij.mul(forces, axis=0)
         wj = bij.mul(-forces, axis=0)
         
-        fi = wi.join(self.bonds.set_index('bID'))[['x','y','z','Atom1']].groupby('Atom1').sum()
-        fj = wi.join(self.bonds.set_index('bID'))[['x','y','z','Atom2']].groupby('Atom2').sum()
+        fi = wi.join(topologia.bonds.set_index('bID'))[['x','y','z','Atom1']].groupby('Atom1').sum()
+        fj = wi.join(topologia.bonds.set_index('bID'))[['x','y','z','Atom2']].groupby('Atom2').sum()
         fi.index.names = ['aID']
         fj.index.names = ['aID']
         ff = fi.add(fj, axis=0, fill_value=0)
@@ -1369,20 +514,20 @@ class LammpsData():
 
 
 
-    def charmmAngleForce(self):
+     def charmmAngleForce(self,atomproperty,topologia):
         ''' Computes CHARMM angle energy.
             Formula: sum K * (aij - a0)**2
         '''
-        bi = self.angles.set_index('Atom1').join(
-                self.atoms.set_index('aID')
+        bi = topologia.angles.set_index('Atom1').join(
+                atomproperty.atoms.set_index('aID')
              )[['anID','x', 'y', 'z']].set_index('anID')
 
-        bj = self.angles.set_index('Atom2').join(
-                self.atoms.set_index('aID')
+        bj = topologia.angles.set_index('Atom2').join(
+                atomproperty.atoms.set_index('aID')
              )[['anID','x', 'y', 'z']].set_index('anID')
 
-        bk = self.angles.set_index('Atom3').join(
-                self.atoms.set_index('aID')
+        bk = topologia.angles.set_index('Atom3').join(
+                atomproperty.atoms.set_index('aID')
              )[['anID','x', 'y', 'z']].set_index('anID')
 
         # compute angles
@@ -1394,7 +539,7 @@ class LammpsData():
         dot = l1.x * l2.x + l1.y * l2.y + l1.z * l2.z
         angles = np.arccos(dot / (norm1 * norm2))
 
-        coeffs = self.angles[['anID','anType']].set_index('anType').join(
+        coeffs = topologia.angles[['anID','anType']].set_index('anType').join(
                         self.angleCoeffs.set_index('anType')
                  ).reset_index(drop=True)
 
@@ -1413,9 +558,9 @@ class LammpsData():
         w2 = l1.sub(l2.mul(c12 / c22, axis=0),  axis=0).mul(forces / cd, axis=0)
 
         #print(self.angles.columns.values)
-        f1 = w1.join(self.angles.set_index('anID'))[['x','y','z','Atom1']].groupby('Atom1').sum()
-        f2 = w1.sub(w2, axis=0).join(self.angles.set_index('anID'))[['x','y','z','Atom2']].groupby('Atom2').sum()
-        f3 = w2.join(self.angles.set_index('anID'))[['x','y','z','Atom3']].groupby('Atom3').sum()
+        f1 = w1.join(topologia.angles.set_index('anID'))[['x','y','z','Atom1']].groupby('Atom1').sum()
+        f2 = w1.sub(w2, axis=0).join(topologia.angles.set_index('anID'))[['x','y','z','Atom2']].groupby('Atom2').sum()
+        f3 = w2.join(topologia.angles.set_index('anID'))[['x','y','z','Atom3']].groupby('Atom3').sum()
         f1.index.names = ['aID']
         f2.index.names = ['aID']
         f3.index.names = ['aID']
@@ -1424,28 +569,755 @@ class LammpsData():
         #print (ff)
         return ff
 
-    def charmmForce(self):
-        return self.charmmNonBondForce().add(self.charmmBondForce(), axis=0).add(self.charmmAngleForce(), axis=0)
+     def charmmForce(self,atomproperty,topologia):
+        return self.charmmNonBondForce(atomproperty,topologia).add(self.charmmBondForce(atomproperty,topologia), axis=0).add(self.charmmAngleForce(atomproperty,topologia), axis=0)
+
+	
+
+#===================================================================
+#Clases temporeras que hereda de panda,las subclases de sus clases originales(nombre)
+#   se pasaron a estas nuevas clases.
+
+class AtomProperty(LammpsBodySection):#cambiado LammpsBodySection
+    pass
+'''
+    def __init__(self):
+        pass     
+ '''
+   
+class MolecularTopology(LammpsBodySection):
+    pass
+'''
+    def __init__(self):
+        pass
+'''
+
+class ForceField(LammpsBodySection):
+    pass
+'''
+    def __init__(self):
+        pass
+'''
+#=====================================================================
+class AtomsDF(AtomProperty):
+    def __init__(self,data=None, dtype=None, copy=False):
+        dtypes = {'aID':[0], 'Mol_ID':[0], 'aType':[0], 'Q':[0.0], 
+                  'x':[0.0], 'y':[0.0], 'z':[0.0], 'Nx':[0], 'Ny':[0], 'Nz':[0]}   
+        super(AtomsDF, self).__init__(data=dtypes, copy=copy, columns=['aID', 'Mol_ID', 'aType', 'Q', 
+                  'x', 'y', 'z', 'Nx', 'Ny', 'Nz'])
+        super(AtomsDF, self).__init__(self.drop([0]))
+        
+    def setFromPSF(self, charmm):
+        ''' Extracts info from ATOMS object of a PSF object into self.
+
+        Parameter
+        -----------------
+        charmm : NAMDdata
+            NAMDdata object
+        '''
+
+        charmmTypeToInt = detectAtomTypes(charmm)
+        #print(charmmTypeToInt)
+        #print(atom_types['Type'].map(charmmTypeToInt))
+
+        # extract info from charmm
+        sel_psf     = charmm.psf.atoms[['ID', 'Type', 'Charge']].set_index('ID')
+        #print(sel_psf)
+        sel_pdb     = charmm.pdb[['ID','x','y','z']].set_index('ID')
+        #print(sel_pdb)
+        sel         = sel_pdb.join(sel_psf)
+        #print(sel)        
+        sel['aType'] = sel_psf['Type'].map(charmmTypeToInt)
+        #print(sel)
+        sel.reset_index(inplace=True)
+        #print(sel)        
+        sel         .rename(columns={"Charge":"Q",'ID':'aID'}, inplace=True)
+
+        # add remining columns
+        sel['Mol_ID'] = np.ones((len(sel), 1), dtype=np.int8)
+        sel['Nx']     = np.zeros((len(sel), 1))
+        sel['Ny']     = np.zeros((len(sel), 1))
+        sel['Nz']     = np.zeros((len(sel), 1))
+        sel['ID']     = np.arange(1, len(sel)+1)
+        #print(sel[np.isfinite(sel['aType'])])
+        # rearrange columns
+        sel = sel[['aID', 'Mol_ID', 'aType', 'Q', 'x', 'y', 'z', 'Nx', 'Ny', 'Nz']]
+        
+        #sel.reset_index(inplace=True)
+        #print("sel = ", sel.dtypes)
+        super(AtomsDF, self).__init__(sel.astype({
+                     'Mol_ID' :int,
+                     'aType' :int,
+                     'Q' :float,
+                     'x' :float,
+                     'y' :float,
+                     'z' :float,
+                     'Nx' :int,
+                     'Ny' :int,
+                     'Nz' : int
+                    }))
+        #print(self.dtypes)
+
+
+class MassesDF(AtomProperty):
+    def __init__(self,data=None, dtype=None, copy=False):
+        if data  is None:
+            dtypes = {'aType':[0], 'Mass':[0.0]}
+            super(MassesDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
+            super(MassesDF, self).__init__(self.drop([0]))
+ 
+    def setFromPSF(self, psf_atoms, atoms):
+        ''' Extracts info from ATOMS object of a PSF object into self.
+
+        Parameter
+        -----------------
+        psf_atoms : PSF.ATOMS
+            a PSF.ATOMS object
+
+        atoms     : AtomsDF
+            an AtomsDF object
+        '''
+
+        # extract info from charmm and LAMMPS
+        sel_psf  = psf_atoms[['ID', 'Mass']].set_index('ID')
+        sel_self = atoms[['aID', 'aType']].set_index('aID').copy()
+        sel      = sel_self.join(sel_psf).drop_duplicates().reset_index()
+
+        # rename columns
+        sel      .drop(columns='aID', inplace=True)
+        #sel      .rename(columns={"Type":"mID"}, inplace=True)
+        #print(sel.dtypes)
+
+        super(MassesDF, self).__init__(sel)
+
+
+class VelocitiesDF(AtomProperty):
+    def __init__(self,data=None, dtype=None, copy=False):
+        dtypes = {'vID':[0], 'Vx':[0.0], 'Vy':[0.0], 'Vz':[0.0]}
+        super(VelocitiesDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
+        super(VelocitiesDF, self).__init__(self.drop([0]))
+   
+    def setToZero(self, atoms):
+        ''' Sets velocitis of atoms to zero.
+
+        Parameter
+        -----------------
+        atoms     : AtomsDF
+            an AtomsDF object
+        '''
+
+        # extract info from LAMMPS
+        sel = atoms[['aID']].copy().rename(columns={'aID':'vID'})
+        #sel.rename(columns={'aID':'vID'}, inplace=True)
+        sel['Vx']     = np.zeros((len(sel), 1))
+        sel['Vy']     = np.zeros((len(sel), 1))
+        sel['Vz']     = np.zeros((len(sel), 1))
+        #print("VelocitiesDF sel = ", sel.dtypes)
+
+        super(VelocitiesDF, self).__init__(sel)
+
+#===================================================================
+
+class AnglesDF(MolecularTopology):
+    def __init__(self,data=None, dtype=None, copy=False):
+        dtypes = {'anID':[0], 'anType':[0], 'Atom1':[0], 'Atom2':[0], 'Atom3':[0]}
+        super(AnglesDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
+        super(AnglesDF, self).__init__(self.drop([0]))
+
+    def setFromPSF(self, charmm):
+        ''' Extracts info from ATOMS object of a PSF object into self.
+
+        Parameter
+        -----------------
+        charmm : NAMDdata
+            NAMDdata object
+        '''
+
+        # extract info from charmm
+        psf_types   = charmm.psf.atoms[['ID', 'Type']].set_index('ID').to_dict()['Type']
+        #print(psf_types)
+
+        # substitute atoms numbers with charmm atom types
+        angles     = charmm.psf.angles.copy()
+        angles['atom1'] = angles['atom1'].map(psf_types)
+        angles['atom2'] = angles['atom2'].map(psf_types)
+        angles['atom3'] = angles['atom3'].map(psf_types)
+        angles['atuple'] = list(zip(angles.atom1, angles.atom2, angles.atom3))
+        angles.drop(columns=['atom1', 'atom2', 'atom3'], inplace=True)
+        #print(angles)
+
+        # build translation dict
+        btypes = angles.copy().drop_duplicates(inplace=False)
+        #print(btypes)
+        btypes['ID'] = np.arange(1, len(btypes)+1)
+        btypes.set_index('atuple', inplace=True)
+        btypeToInt = btypes.to_dict()['ID']
+        #print(btypeToInt)
+        btypes.reset_index(inplace=True)
+
+        # final table
+        angles['ID'] = np.arange(1, len(angles)+1)
+        angles['Type'] = angles['atuple'].map(btypeToInt)
+        angles.drop(columns=['atuple'], inplace=True)
+        angles['Atom1'] = charmm.psf.angles.copy()['atom1']
+        angles['Atom2'] = charmm.psf.angles.copy()['atom2']
+        angles['Atom3'] = charmm.psf.angles.copy()['atom3']
+
+        angles.rename(columns={'ID':'anID', 'Type':'anType'}, inplace=True)
+        #print(angles)
+
+        super(AnglesDF, self).__init__(angles)
+        #print(self.dtypes)
+
+class BondsDF(MolecularTopology):
+    def __init__(self,data=None, dtype=None, copy=False):
+        dtypes = {'bID':[0], 'bType':[0], 'Atom1':[0], 'Atom2':[0]}     
+        super(BondsDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
+        super(BondsDF, self).__init__(self.drop([0]))
+
+    def setFromPSF(self, charmm):
+        ''' Extracts info from ATOMS object of a PSF object into self.
+
+        Parameter
+        -----------------
+        charmm : NAMDdata
+            NAMDdata object
+        '''
+
+        # extract info from charmm
+        psf_types   = charmm.psf.atoms[['ID', 'Type']].set_index('ID').to_dict()['Type']
+        #print(psf_types)
+
+        # substitute atoms numbers with charmm atom types
+        bonds     = charmm.psf.bonds.copy()
+        bonds['atom1'] = bonds['atom1'].map(psf_types)
+        bonds['atom2'] = bonds['atom2'].map(psf_types)
+        bonds['atuple'] = list(zip(bonds.atom1, bonds.atom2))
+        bonds.drop(columns=['atom1', 'atom2'], inplace=True)
+        #print(bonds)
+
+        # build translation dict
+        btypes = bonds.copy().drop_duplicates(inplace=False)
+        #print(btypes)
+        btypes['ID'] = np.arange(1, len(btypes)+1)
+        btypes.set_index('atuple', inplace=True)
+        btypeToInt = btypes.to_dict()['ID']
+        #print(btypeToInt)
+        btypes.reset_index(inplace=True)
+
+        # final table
+        bonds['ID'] = np.arange(1, len(bonds)+1)
+        bonds['Type'] = bonds['atuple'].map(btypeToInt)
+        bonds.drop(columns=['atuple'], inplace=True)
+        bonds['Atom1'] = charmm.psf.bonds.copy()['atom1']
+        bonds['Atom2'] = charmm.psf.bonds.copy()['atom2']
+
+        bonds.rename(columns={'ID':'bID', 'Type':'bType'}, inplace=True)
+        #print(bonds)
+
+        super(BondsDF, self).__init__(bonds)
+        #print(self.dtypes)
+
+
+       
+class DihedralsDF(MolecularTopology):
+    def __init__(self,data=None, dtype=None, copy=False):
+        dtypes = {'dID':[0], 'dType':[0], 'atom1':[0], 'atom2':[0], 'atom3':[0], 'atom4':[0]}
+        super(DihedralsDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
+        super(DihedralsDF, self).__init__(self.drop([0]))
+
+    def setFromPSF(self, charmm):
+        ''' Extracts info from ATOMS object of a PSF object into self.
+
+        Parameter
+        -----------------
+        charmm : NAMDdata
+            NAMDdata object
+        '''
+
+        # extract info from charmm
+        psf_types   = charmm.psf.atoms[['ID', 'Type']].set_index('ID').to_dict()['Type']
+        #print(psf_types)
+
+        # substitute atoms numbers with charmm atom types
+        dihes     = charmm.psf.dihedrals.copy()
+        #print(charmm.psf.dihedrals)
+        dihes['atom1'] = dihes['atom1'].map(psf_types)
+        dihes['atom2'] = dihes['atom2'].map(psf_types)
+        dihes['atom3'] = dihes['atom3'].map(psf_types)
+        dihes['atom4'] = dihes['atom4'].map(psf_types)
+        dihes['atuple'] = list(zip(dihes.atom1, dihes.atom2, dihes.atom3, dihes.atom4))
+        dihes.drop(columns=['atom1', 'atom2', 'atom3', 'atom4'], inplace=True)
+        #print(dihes)
+
+        # build translation dict
+        btypes = dihes.copy().drop_duplicates(inplace=False)
+        #print(btypes)
+        btypes['ID'] = np.arange(1, len(btypes)+1)
+        btypes.set_index('atuple', inplace=True)
+        btypeToInt = btypes.to_dict()['ID']
+        #print(btypeToInt)
+        btypes.reset_index(inplace=True)
+
+        # final table
+        dihes['ID'] = np.arange(1, len(dihes)+1)
+        dihes['Type'] = dihes['atuple'].map(btypeToInt)
+        dihes.drop(columns=['atuple'], inplace=True)
+        dihes['Atom1'] = charmm.psf.dihedrals.copy()['atom1']
+        dihes['Atom2'] = charmm.psf.dihedrals.copy()['atom2']
+        dihes['Atom3'] = charmm.psf.dihedrals.copy()['atom3']
+        dihes['Atom4'] = charmm.psf.dihedrals.copy()['atom4']
+
+        dihes.rename(columns={'ID':'dID', 'Type':'dType'}, inplace=True)
+        #print(dihes)
+
+        super(DihedralsDF, self).__init__(dihes)
+        #print(self.dtypes)
+
+
+class ImpropersDF(MolecularTopology):
+    def __init__(self,data=None, dtype=None, copy=False):
+        dtypes = {'iID':[0], 'iType':[0], 'atom1':[0], 'atom2':[0], 'atom3':[0], 'atom4':[0]}
+        super(ImpropersDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
+        super(ImpropersDF, self).__init__(self.drop([0]))
+
+    def setFromPSF(self, charmm):
+        ''' Extracts info from ATOMS object of a PSF object into self.
+
+        Parameter
+        -----------------
+        charmm : NAMDdata
+            NAMDdata object
+        '''
+
+        # extract info from charmm
+        psf_types   = charmm.psf.atoms[['ID', 'Type']].set_index('ID').to_dict()['Type']
+        #print(psf_types)
+
+        # substitute atoms numbers with charmm atom types
+        impros     = charmm.psf.impropers.copy()
+        impros['atom1'] = impros['atom1'].map(psf_types)
+        impros['atom2'] = impros['atom2'].map(psf_types)
+        impros['atom3'] = impros['atom3'].map(psf_types)
+        impros['atom4'] = impros['atom4'].map(psf_types)
+        impros['atuple'] = list(zip(impros.atom1, impros.atom2, impros.atom3))
+        impros.drop(columns=['atom1', 'atom2', 'atom3', 'atom4'], inplace=True)
+        #print(impros)
+
+        # build translation dict
+        btypes = impros.copy().drop_duplicates(inplace=False)
+        #print(btypes)
+        btypes['ID'] = np.arange(1, len(btypes)+1)
+        btypes.set_index('atuple', inplace=True)
+        btypeToInt = btypes.to_dict()['ID']
+        #print(btypeToInt)
+        btypes.reset_index(inplace=True)
+
+        # final table
+        impros['ID'] = np.arange(1, len(impros)+1)
+        impros['Type'] = impros['atuple'].map(btypeToInt)
+        impros.drop(columns=['atuple'], inplace=True)
+        impros['Atom1'] = charmm.psf.impropers.copy()['atom1']
+        impros['Atom2'] = charmm.psf.impropers.copy()['atom2']
+        impros['Atom3'] = charmm.psf.impropers.copy()['atom3']
+        impros['Atom4'] = charmm.psf.impropers.copy()['atom4']
+
+        impros.rename(columns={'ID':'iID', 'Type':'iType'}, inplace=True)
+        #print(impros)
+
+        super(ImpropersDF, self).__init__(impros)
+        #print(self.dtypes)
+
+
+#===================================================================
+
+class PairCoeffs(ForceField):
+    def __init__(self,data=None, dtype=None, copy=False):
+        super(PairCoeffs, self).__init__(data=data, columns=['aType', 'epsilon', 'sigma', 'epsilon1_4', 'sigma1_4'], dtype=dtype, copy=copy)
+
+    def setFromPSF(self, charmm, mass):
+        ''' Extracts info from PRM and PSF objects into self.
+
+        Parameter
+        -----------------
+        charmm : NAMDdata
+            NAMDdata object
+
+        mass : MassDF
+            AtomsDF object associateed with these PairCoeffs
+        '''
+
+        # extract info from charmm
+        psf_types   = charmm.psf.atoms[['ID', 'Type']].set_index('ID').to_dict()['Type']
+        #print(psf_types)
+
+        # substitute atoms numbers with charmm atom types
+        nonbonded       = mass.copy()
+        nonbonded['types'] = nonbonded.aType.map(psf_types)
+        nonbonded.drop(columns=['Mass'], inplace=True)
+        #print(nonbonded)
+
+        prmFF = charmm.prm.nonbonded.getCoeffs()
+        #print("Aqui el DF: ",prmFF)
+
+        # add charge and energy to atoms
+        nonbonded['epsilon'] = nonbonded.types.map(prmFF.epsilon.to_dict())
+        nonbonded['sigma'] = nonbonded.types.map(prmFF.Rmin2.to_dict())
+        nonbonded['epsilon1_4'] = nonbonded.types.map(prmFF.epsilon.to_dict())
+        nonbonded['sigma1_4'] = nonbonded.types.map(prmFF.Rmin2.to_dict())
+        nonbonded.drop(columns=['types'], inplace=True)
+
+        nonbonded.rename(columns={'aID':'aType'}, inplace=True)
+        #print(nonbonded)
+
+        super(PairCoeffs, self).__init__(nonbonded)
+        #print("\nPairCoeffs Nans:\n",nonbonded.isna().sum())
+        #print(self.dtypes)
+
+
+
+class AngleCoeffs(ForceField):
+    def __init__(self,data=None, dtype=None, copy=False):
+        super(AngleCoeffs, self).__init__(data =data, columns=['anType', 'Ktheta', 'Theta0', 'Kub', 'S0'], dtype=dtype, copy=copy)
+
+    def setFromPSF(self, charmm, angles):
+        ''' Extracts info from PRM and PSF objects into self.
+
+        Parameter
+        -----------------
+        charmm : NAMDdata
+            NAMDdata object
+
+        angles : AnglesDF
+            AnglesDF object associateed with these AngleCoeffs
+        '''
+
+        # extract info from charmm
+        psf_types   = charmm.psf.atoms[['ID', 'Type']].set_index('ID').to_dict()['Type']
+        #print(psf_types)
+
+        # substitute atoms numbers with charmm atom types
+        angles     = angles.copy()
+        angles.Atom1 = angles.Atom1.map(psf_types)
+        angles.Atom2 = angles.Atom2.map(psf_types)
+        angles.Atom3 = angles.Atom3.map(psf_types)
+        angles['atuple'] = list(zip(angles.Atom1, angles.Atom2, angles.Atom3))
+        angles.drop(columns=['anID', 'Atom1', 'Atom2', 'Atom3'], inplace=True)
+        angles.drop_duplicates(inplace=True)
+
+        prmFF = charmm.prm.angles.getCoeffs()
+
+        # add Kb and b0 to bonds
+        angles['Ktheta'] = angles.atuple.map(prmFF.Ktheta.to_dict())
+        #angles['Ktheta'] = angles.atuple.apply(findWithX, args=(prmFF.Ktheta.to_dict(),) )
+        angles['Theta0'] = angles.atuple.map(prmFF.Theta0.to_dict())
+        angles['Kub'] = angles.atuple.map(prmFF.Kub.to_dict())
+        angles['S0'] = angles.atuple.map(prmFF.S0.to_dict())
+        angles.drop(columns=['atuple'], inplace=True)
+        #print(angles)
+        #print(angles.isna().sum())
+
+        angles.fillna(0.0, inplace=True)
+
+        angles.rename(columns={'ID':'anType'}, inplace=True)
+
+        super(AngleCoeffs, self).__init__(angles)
+        #print("\nAngleCoeffs Nans:\n",angles.isna().sum())
+        #print("Nans:\n",self)
+
+
+
+class BondCoeffs(ForceField):
+    def __init__(self,data=None, dtype=None, copy=False):
+        super(BondCoeffs, self).__init__(data=data, columns=['bType','Spring_Constant','Eq_Length'], dtype=dtype, copy=copy)
+
+    def setFromPSF(self, charmm, bonds):
+        ''' Extracts info from PRM and PSF objects into self.
+
+        Parameter
+        -----------------
+        charmm : NAMDdata
+            NAMDdata object
+
+        bonds : BondsDF
+            BondsDF object associateed with these BondCoeffs
+        '''
+
+        # extract info from charmm
+        psf_types   = charmm.psf.atoms[['ID', 'Type']].set_index('ID').to_dict()['Type']
+        #print(psf_types)
+
+        # substitute atoms numbers with charmm atom types
+        bonds     = bonds.copy()
+        bonds.Atom1 = bonds.Atom1.map(psf_types)
+        bonds.Atom2 = bonds.Atom2.map(psf_types)
+        bonds['atuple'] = list(zip(bonds.Atom1, bonds.Atom2))
+        bonds.drop(columns=['bID', 'Atom1', 'Atom2'], inplace=True)
+        bonds.drop_duplicates(inplace=True)
+        #print(bonds)
+
+        prmFF = charmm.prm.bonds.getCoeffs()
+
+
+        # add Kb and b0 to bonds
+        bonds['Spring_Constant'] = bonds.atuple.map(prmFF.Kb.to_dict())
+        bonds['Eq_Length'] = bonds.atuple.map(prmFF.b0.to_dict())
+        bonds.drop(columns=['atuple'], inplace=True)
+        #print(bonds)
+        #print("\nBondCoeffs Nans:\n",bonds.isna().sum())
+
+        bonds.rename(columns={'ID':'bType'}, inplace=True)
+
+        super(BondCoeffs, self).__init__(bonds)
+        #print(self.dtypes)
+
+
+class DihedralCoeffs(ForceField):
+    def __init__(self,data=None, dtype=None, copy=False):
+        super(DihedralCoeffs, self).__init__(data=data, columns=['dType', 'Kchi', 'n', 'delta'], dtype=dtype, copy=copy)
+
+    def setFromPSF(self, charmm, dihedrals):
+        ''' Extracts info from PRM and PSF objects into self.
+
+        Parameter
+        -----------------
+        charmm : NAMDdata
+            NAMDdata object
+
+        dihedrals : DihedralsDF
+            AnglesDF object associateed with these AngleCoeffs
+        '''
+
+        # extract info from charmm
+        psf_types   = charmm.psf.atoms[['ID', 'Type']].set_index('ID').to_dict()['Type']
+        #print(psf_types)
+
+        # substitute atoms numbers with charmm atom types
+
+        dihedrals     = dihedrals.copy()
+        dihedrals.Atom1 = dihedrals.Atom1.map(psf_types)
+        dihedrals.Atom2 = dihedrals.Atom2.map(psf_types)
+        dihedrals.Atom3 = dihedrals.Atom3.map(psf_types)
+        dihedrals.Atom4 = dihedrals.Atom4.map(psf_types)
+        dihedrals['atuple'] = list(zip(dihedrals.Atom1, dihedrals.Atom2, dihedrals.Atom3, dihedrals.Atom4))
+        dihedrals.drop(columns=['dID', 'Atom1', 'Atom2', 'Atom3', 'Atom4'], inplace=True)
+        dihedrals.drop_duplicates(inplace=True)
+        #print(dihedrals)
+
+        prmFF = charmm.prm.dihedrals.getCoeffs()
+        #print(prmFF)
+
+        # add Kb and b0 to bonds
+        #dihedrals['Kchi'] = dihedrals.atuple.map(prmFF.Kchi.to_dict())
+        #dihedrals['n'] = dihedrals.atuple.map(prmFF.n.to_dict())
+        #dihedrals['delta'] = dihedrals.atuple.map(prmFF.delta.to_dict())
+        dihedrals['Kchi'] = dihedrals.atuple.apply(findWithX, args=(prmFF.Kchi.to_dict(),) )
+        dihedrals['n'] = dihedrals.atuple.apply(findWithX, args=(prmFF.n.to_dict(),) )
+        dihedrals['delta'] = dihedrals.atuple.apply(findWithX, args=(prmFF.delta.to_dict(),) )
+        #print(dihedrals)
+        dihedrals.drop(columns=['atuple'], inplace=True)
+        #print("\nDihedralCoeffs Nans:\n",dihedrals.isna().sum())
+
+        dihedrals = dihedrals.dropna()
+        dihedrals['Type'] = dihedrals.index = np.arange(1, len(dihedrals)+1)
+        dihedrals['Weighting_Factor'] = float(random.randint(0,2)/2)    #Is given randomly for now
+
+        dihedrals.rename(columns={'ID':'dType'}, inplace=True)
+        del dihedrals['Type']
+        
+        super(DihedralCoeffs, self).__init__(dihedrals.astype({'Kchi':float, 'n':int, 'delta':int,'Weighting_Factor':float}))
+        #print("DihedralCoeffs\n",self.dtypes)
+
+
+class ImproperCoeffs(ForceField):
+    def __init__(self,data=None, dtype=None, copy=False):
+        super(ImproperCoeffs, self).__init__(data=data, columns=['iType', 'Kchi', 'n', 'delta'], dtype=dtype, copy=copy)
+
+    def setFromPSF(self, charmm, impropers):
+        ''' Extracts info from PRM and PSF objects into self.
+
+        Parameter
+        -----------------
+        charmm : NAMDdata
+            NAMDdata object
+
+        impropers : ImpropersDF
+            AnglesDF object associateed with these AngleCoeffs
+        '''
+
+        # extract info from charmm
+        psf_types   = charmm.psf.atoms[['ID', 'Type']].set_index('ID').to_dict()['Type']
+        #print(psf_types)
+
+        # substitute atoms numbers with charmm atom types
+
+        impropers     = impropers.copy()
+        impropers.Atom1 = impropers.Atom1.map(psf_types)
+        impropers.Atom2 = impropers.Atom2.map(psf_types)
+        impropers.Atom3 = impropers.Atom3.map(psf_types)
+        impropers.Atom4 = impropers.Atom4.map(psf_types)
+        impropers['atuple'] = list(zip(impropers.Atom1, impropers.Atom2, impropers.Atom3, impropers.Atom4))
+        impropers.drop(columns=['iID', 'Atom1', 'Atom2', 'Atom3', 'Atom4'], inplace=True)
+        impropers.drop_duplicates(inplace=True)
+        #print(impropers)
+
+        prmFF = charmm.prm.impropers.getCoeffs()
+        #print(prmFF)
+
+        # add Kb and b0 to bonds
+        impropers['Kpsi'] = impropers.atuple.apply(findWithX, args=(prmFF.Kpsi.to_dict(),) )
+        impropers['psi0'] = impropers.atuple.apply(findWithX, args=(prmFF.psi0.to_dict(),) )
+        #impropers['Kpsi'] = impropers.atuple.map(prmFF.Kpsi.to_dict())
+        #impropers['psi0'] = impropers.atuple.map(prmFF.psi0.to_dict())
+        #print(impropers)
+        impropers.drop(columns=['atuple'], inplace=True)
+        #print("\nImproperCoeffs Nans:\n",impropers.isna().sum())
+
+        impropers['Type'] = impropers.index = np.arange(1, len(impropers)+1)
+
+        impropers.rename(columns={'ID':'iType'}, inplace=True)
+        del impropers['Type']
+        
+        super(ImproperCoeffs, self).__init__(impropers)
+        #print(self)
+ 
+#===================================================================
+#CLASES TEMPORERAS
+'''
+class NonbDF(MolecularTopologySections):
+    def __init__(self,data=None, dtype=None, copy=False):
+        super(NonbDF, self).__init__(data=data, copy=copy, columns=['ID','Type1','Force','Charge','Energy'])
+
+class BondDF(MolecularTopologySections):
+    def __init__(self,data=None, dtype=None, copy=False):
+        super(BondDF, self).__init__(data=data, copy=copy, columns=['ID','Type1','Type2','Spring_Constant','Eq_Length'])
+
+class AnglDF(MolecularTopologySections):
+    def __init__(self,data=None, dtype=None, copy=False):
+        super(AnglDF, self).__init__(data=data, copy=copy, columns=['ID','Type1','Type2','Type3','Spring_Constant','Eq_Angle'])
+
+class ImprDF(MolecularTopologySections):
+    def __init__(self,data=None, dtype=None, copy=False):
+        super(ImprDF, self).__init__(data=data, copy=copy, columns=['ID','Atom','Types','Kpsi','Psi0'])
+
+class DiheDF(MolecularTopologySections):
+    def __init__(self,data=None, dtype=None, copy=False):
+        super(DiheDF, self).__init__(data=data, copy=copy, columns=['ID','Type1','Type2','Type3','Type4','Spring_Constant','Multiplicity','Eq_Angle'])
+
+class PDB_File(MolecularTopologySections):
+    def __init__(self,data=None, dtype=None, copy=False):
+        super(PDB_File, self).__init__(data=data, copy=copy, columns=['RecName','ID','Name','AltLoc','ResName','ChainID','ResSeq','iCode','x','y','z','Occupancy','TempFactor','Element','Charge'])
+
+class PSF_File(MolecularTopologySections):
+    def __init__(self,data=None, dtype=None, copy=False):
+        super(PSF_File, self).__init__(data=data, copy=copy, columns=['ID','RecName','ChainID', 'ResName', 'Name', 'Type', 'Charge', 'Mass', 'Unused'])
+'''
+
+#=================================================================== 
+
+class LammpsData():
+    ''' Holds LAMMPS data.
+        See "Format of a data file" section in https://lammps.sandia.gov/doc/read_data.html
+    '''
+
+    def __init__(self):
+
+        '''
+        self['Ellipsoids']  = EllipsoidsDF()
+        selflines       = LinesDF()
+        self.bodies      = BodiesDF()
+        self.triangles   = TrianglesDF()
+        self.bodies   = BodiesDF()
+        '''
+        
+        #forceFieldSectio composi
+        self.forceField = ForceFieldData()
+        
+        # atom-property sections
+        self.atomproperty = AtomPropertyData()
+        
+        # molecular topology sections
+        self.topologia = MolecularTopologyData()
+             
+
+    def read(self, filename):
+    
+        #Abrir el archivo para leer datos
+        arch = open(filename, 'r')
+        serial = 1
+        ind = 0
+        num = []
+        tipo = []
+        caja = []
+        
+        l = LammpsData()
+               
+        #Prepare cycle to enhance process by removing CAPS and spaces to get DF keyword. 
+        keywords = ["Masses","Pair Coeffs","Bond Coeffs","Angle Coeffs","Dihedral Coeffs",
+                    "Improper Coeffs","Atoms","Velocities","Bonds","Angles","Dihedrals","Impropers"]
+
+        for linea in arch:
+            valid = True
+            
+            key = linea.strip()
+            data = []
+            #Si encuentro la seccion deseada en el archivo
+            if key in keywords:
+            
+                #Comienzo a almacenar la informacion
+                linea = next(arch)
+                linea = next(arch)   
+                       
+                #Almacenar la informacion mientras exista
+                while valid:      
+                    data.append(linea.split())
+                    #Prevenir error de iteracion cuando el archivo se acaba
+                    try: linea = next(arch)
+                    except(StopIteration):
+                        valid = False
+                        break
+                    #Si se acaban los datos del parametro, vamos al proximo
+                    if linea.strip() == '':
+                        valid = False
+                       
+                #Almacenar toda la data de esa seccion
+                if key == 'Masses': self.masses.add(data)
+                if key == 'Pair Coeffs': self.pairCoeffs.add(data)
+                if key == 'Bond Coeffs': self.bondCoeffs.add(data)
+                if key == 'Angle Coeffs': self.angleCoeffs.add(data)                
+                if key == 'Dihedral Coeffs': self.dihedralCoeffs.add(data)
+                if key == 'Improper Coeffs':self.improperCoeffs.add(data)
+                if key == 'Atoms': self.atoms.add(data)                
+                if key == 'Velociteies': self.velocities.add(data)   
+                if key == 'Bonds': self.bonds.add(data)
+                if key == 'Angles': self.angles.add(data)                
+                if key == 'Dihedrals': self.dihedrals.add(data)
+                if key == 'Impropers':self.impropers.add(data)                
+              
+        arch.close()                
+           
 
     def loadNAMDdata(self, charmm):
         ''' loads data from NAMDdata object into self.'''
         #print("loadNAMDdata=",charmm.psf.dihedrals)
-        self.atoms.setFromPSF(charmm)
-        self.velocities.setToZero(self.atoms)
-        self.masses.setFromPSF(charmm.psf.atoms, self.atoms)
-
-        # molecular topology sections
-        self.bonds.setFromPSF(charmm)
-        self.angles.setFromPSF(charmm)
-        self.dihedrals.setFromPSF(charmm)
-        self.impropers.setFromPSF(charmm)
-
-        #  force field sections
+        
+        #AtomPropertyData
+        self.atomproperty.setFromPSF(charmm)
+        
+        # MolecularTopologyData
+        self.topologia.setFromPSF(charmm)
+       
+        # ForceFieldData
+      
+        self.forceField.setFromPSF(charmm, self.atomproperty,self.topologia)
+        
+        '''
         self.pairCoeffs.setFromPSF(charmm, self.masses)
         self.bondCoeffs.setFromPSF(charmm, self.bonds)
         self.angleCoeffs.setFromPSF(charmm, self.angles)
         self.dihedralCoeffs.setFromPSF(charmm, self.dihedrals)
         self.improperCoeffs.setFromPSF(charmm, self.impropers)
+        '''
 
     def writeConf(self, filename):
         import sys
@@ -1457,13 +1329,13 @@ class LammpsData():
         overview_section = '{0:>12}  atoms\n{1:>12}  bonds\n{2:>12}  angles\n{3:>12}  dihedrals\n{4:>12}  impropers\n\n{5:>12}  atom types\n' \
                            '{6:>12}  bond types\n{7:>12}  angle types\n{8:>12}  dihedral types\n{9:>12}  improper types\n\n' \
                            .format( \
-                                len(self.atoms), len(self.bonds), len(self.angles), len(self.dihedrals), len(self.impropers), len(self.masses), \
-                                len(self.bondCoeffs), len(self.angleCoeffs), len(self.dihedralCoeffs), len(self.improperCoeffs)) 
+                                len(self.atomproperty.atoms), len(self.topologia.bonds), len(self.topologia.angles), len(self.topologia.dihedrals), len(self.topologia.impropers), len(self.atomproperty.masses), \
+                                len(self.forceField.bondCoeffs), len(self.forceField.angleCoeffs), len(self.forceField.dihedralCoeffs), len(self.forceField.improperCoeffs)) 
 
         # Improve and ask from where we get this data
-        box_section =  ' ' + str(36.840194) + ' ' + str(64.211568) + ' xlo xhi\n' + \
-                       ' ' + str(41.013691) + ' ' + str(68.385058) + ' ylo yhi\n' + \
-                       ' ' + str(29.768095) + ' ' + str(57.139462) + ' zlo zhi\n'   \
+        box_section =  ' ' + str(self.atomproperty.atoms['x'].min()-2) + ' ' + str(self.atomproperty.atoms['x'].max()+2) + ' xlo xhi\n' + \
+                       ' ' + str(self.atomproperty.atoms['y'].min()-2) + ' ' + str(self.atomproperty.atoms['y'].max()+2) + ' ylo yhi\n' + \
+                       ' ' + str(self.atomproperty.atoms['z'].min()-2) + ' ' + str(self.atomproperty.atoms['z'].max()+2) + ' zlo zhi\n'   \
 
         # Header
         cfile.write("LAMMPS Description\n\n")
@@ -1471,57 +1343,57 @@ class LammpsData():
 
 
         #Masses
-        if len(self.masses) > 0:
+        if len(self.atomproperty.masses) > 0:
             cfile.write('\nMasses\n\n')
-            cfile.write(self.masses.to_string(index=False, columns=self.masses.columns, header=False))
+            cfile.write(self.atomproperty.masses.to_string(index=False, columns=self.atomproperty.masses.columns, header=False))
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No atom mass values to write. Simulation unlikely to run with this file.")
 
 
         #Pair Coeffs
-        if len(self.pairCoeffs) > 0:
+        if len(self.forceField.pairCoeffs) > 0:
             cfile.write('\nPair Coeffs\n\n')
             #print("Pair Coeffs:", self.pairCoeffs.columns)
             #[cfile.write('{:>3d}{:>12}{:>12}{:>12}{:>12}\n'.format(row['ID'], row['Charge'], row['Energy'],
             # row['Charge'], row['Energy'])) for index, row in self['Pair Coeffs'].iterrows()]
-            cfile.write(self.pairCoeffs.to_string(index=False, columns=self.pairCoeffs.columns, header=False))        
+            cfile.write(self.forceField.pairCoeffs.to_string(index=False, columns=self.forceField.pairCoeffs.columns, header=False))        
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No Pair coefficients to write.\n")
 
 
         #Bond Coeffs
-        if len(self.bondCoeffs) > 0:
+        if len(self.forceField.bondCoeffs) > 0:
             cfile.write('\nBond Coeffs\n\n')
-            cfile.write(self.bondCoeffs.to_string(index=False, columns=self.bondCoeffs.columns, header=False))        
+            cfile.write(self.forceField.bondCoeffs.to_string(index=False, columns=self.forceField.bondCoeffs.columns, header=False))        
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No bond coefficients to write.\n")
 
 
         #Angle Coeffs
-        if len(self.angleCoeffs) > 0:
+        if len(self.forceField.angleCoeffs) > 0:
             cfile.write('\nAngle Coeffs\n\n')
-            cfile.write(self.angleCoeffs.to_string(index=False, columns=self.angleCoeffs.columns, header=False))        
+            cfile.write(self.forceField.angleCoeffs.to_string(index=False, columns=self.forceField.angleCoeffs.columns, header=False))        
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No angle coefficients to write.\n")
 
 
         #Dihedral Coeffs
-        if len(self.dihedralCoeffs) > 0:
+        if len(self.forceField.dihedralCoeffs) > 0:
             cfile.write('\nDihedral Coeffs\n\n')
-            cfile.write(self.dihedralCoeffs.to_string(index=False, columns=self.dihedralCoeffs.columns, header=False))        
+            cfile.write(self.forceField.dihedralCoeffs.to_string(index=False, columns=self.forceField.dihedralCoeffs.columns, header=False))        
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No dihedral coefficients to write.\n")
 
 
         #Improper Coeffs
-        if len(self.improperCoeffs) > 0:
+        if len(self.forceField.improperCoeffs) > 0:
             cfile.write('\nImproper Coeffs\n\n') 
-            cfile.write(self.improperCoeffs.to_string(index=False, columns=self.improperCoeffs.columns, header=False))        
+            cfile.write(self.forceField.improperCoeffs.to_string(index=False, columns=self.forceField.improperCoeffs.columns, header=False))        
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No improper coefficients to write.\n")
@@ -1530,52 +1402,60 @@ class LammpsData():
         #Atoms
         cfile.write('\nAtoms\n\n') 
         #cfile.write(self.atoms.to_string(index=False, columns=self.atoms.columns, header=False))
-        cfile.write(self.atoms.to_string(index=False, columns=self.atoms.columns, header=False))
+        cfile.write(self.atomproperty.atoms.to_string(index=False, columns=self.atomproperty.atoms.columns, header=False))
         cfile.write("\n")
 
 
         #Velocities
-        cfile.write('\nVelocities\n\n')
-        cfile.write(self.velocities.to_string(index=False, columns=self.velocities.columns, header=False))        
-        cfile.write("\n")
+        if len(self.topologia.bonds) > 0:
+            cfile.write('\nVelocities\n\n')
+            cfile.write(self.atomproperty.velocities.to_string(index=False, columns=self.atomproperty.velocities.columns, header=False))        
+            cfile.write("\n")
+        else:
+            sys.stderr.write("WARNING: No velocities to write.\n")
 
 
         #Bonds
-        if len(self.bonds) > 0:
+        if len(self.topologia.bonds) > 0:
             cfile.write('\nBonds\n\n')
-            cfile.write(self.bonds.to_string(index=False, columns=self.bonds.columns, header=False))
+            cfile.write(self.topologia.bonds.to_string(index=False, columns=self.topologia.bonds.columns, header=False))
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No bonds to write.\n")
 
         
         #Angles
-        if len(self.angles) > 0:
+        if len(self.topologia.angles) > 0:
             cfile.write('\nAngles\n\n') 
-            cfile.write(self.angles.to_string(index=False, columns=self.angles.columns, header=False))
+            cfile.write(self.topologia.angles.to_string(index=False, columns=self.topologia.angles.columns, header=False))
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No angles to write.\n")
 
 
         #Dihedrals
-        if len(self.dihedrals) > 0:
+        if len(self.topologia.dihedrals) > 0:
             cfile.write('\nDihedrals\n\n') 
-            cfile.write(self.dihedrals.to_string(index=False, columns=self.dihedrals.columns, header=False))
+            cfile.write(self.topologia.dihedrals.to_string(index=False, columns=self.topologia.dihedrals.columns, header=False))
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No dihedrals to write.\n")
 
 
         #Impropers
-        if len(self.impropers) > 0:
+        if len(self.topologia.impropers) > 0:
             cfile.write('\nImpropers\n\n') 
-            cfile.write(self.impropers.to_string(index=False, columns=self.impropers.columns, header=False))
+            cfile.write(self.topologia.impropers.to_string(index=False, columns=self.topologia.impropers.columns, header=False))
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No impropers to write.\n")
-
-
+    
+          
+    def charmmForce(self):
+        '''Hace una llamada a la funcion charmmForce() de la clase forceField() 
+            para poder printiar los datos.'''
+        
+        self.forceField.charmmForce(self.atomproperty,self.topologia)
 
 if __name__ == "__main__":  # tests
     from NAMDdata import NAMDdata
