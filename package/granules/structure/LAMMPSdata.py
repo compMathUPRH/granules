@@ -1407,7 +1407,7 @@ class LammpsData():
 
 
         #Velocities
-        if len(self.topologia.bonds) > 0:
+        if len(self.atomproperty.velocities) > 0:
             cfile.write('\nVelocities\n\n')
             cfile.write(self.atomproperty.velocities.to_string(index=False, columns=self.atomproperty.velocities.columns, header=False))        
             cfile.write("\n")
