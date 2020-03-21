@@ -6,7 +6,7 @@
 
 
   Part of granules Version 0.1.0, October, 2019
-    Copyright 2019: José O.  Sotero Esteva, Lyxaira M. Glass Rivera, 
+    Copyright 2019: José O.  Sotero Esteva, Lyxaira M. Glass Rivera, Lemuel I. Rivera Cantú
     Computational Science Group, Department of Mathematics, 
     University of Puerto Rico at Humacao 
     <jose.sotero@upr.edu>.
