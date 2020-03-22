@@ -33,6 +33,7 @@
 import pandas as pd
 import numpy as np
 import random
+import networkx as nx
 
 
 def findWithX(typeTuple, pardict):
@@ -657,6 +658,10 @@ class AtomsDF(AtomProperty):
                      'Nz' : int
                     }))
         #print(self.dtypes)
+    
+
+
+        
 
 
 class MassesDF(AtomProperty):
@@ -786,7 +791,6 @@ class BondsDF(MolecularTopology):
 
         # extract info from charmm
         psf_types   = charmm.psf.atoms[['ID', 'Type']].set_index('ID').to_dict()['Type']
-        #print(psf_types)
 
         # substitute atoms numbers with charmm atom types
         bonds     = charmm.psf.bonds.copy()
@@ -794,7 +798,6 @@ class BondsDF(MolecularTopology):
         bonds['atom2'] = bonds['atom2'].map(psf_types)
         bonds['atuple'] = list(zip(bonds.atom1, bonds.atom2))
         bonds.drop(columns=['atom1', 'atom2'], inplace=True)
-        #print(bonds)
 
         # build translation dict
         btypes = bonds.copy().drop_duplicates(inplace=False)
@@ -802,7 +805,6 @@ class BondsDF(MolecularTopology):
         btypes['ID'] = np.arange(1, len(btypes)+1)
         btypes.set_index('atuple', inplace=True)
         btypeToInt = btypes.to_dict()['ID']
-        #print(btypeToInt)
         btypes.reset_index(inplace=True)
 
         # final table
@@ -813,11 +815,9 @@ class BondsDF(MolecularTopology):
         bonds['Atom2'] = charmm.psf.bonds.copy()['atom2']
 
         bonds.rename(columns={'ID':'bID', 'Type':'bType'}, inplace=True)
-        #print(bonds)
 
         super(BondsDF, self).__init__(bonds)
-        #print(self.dtypes)
-
+        
 
        
 class DihedralsDF(MolecularTopology):
