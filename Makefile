@@ -1,4 +1,4 @@
-chequeo = no
+
 corridas:
 	$(info Generando Diagramas)
 	@cd doc/Diagramas;make
@@ -6,7 +6,6 @@ corridas:
 	@cd package/granules/tests/chignolin;make
 	$(info Corriendo test_2 tubos)
 	@cd package/granules/tests/tubes;make
-	$(chequeo) : si
 
 clean:
 	@rm -f package/granules/__pycache__/__init__.cpython-37.pyc
