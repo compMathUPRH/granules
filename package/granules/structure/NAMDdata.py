@@ -180,7 +180,7 @@ class PSF:
         arch.close()
         #print(data)
         return data
-
+    
 
     class ATOM(pd.DataFrame):
         ''' ATOM section of the PSF '''
@@ -578,17 +578,10 @@ class NAMDdata:
         self.pdb = PDB()
         self.psf = PSF()
         self.prm = PRM()
+        self.network = None
         
         if files:
             self.readFiles(*files)
-        
-    ___commented_old_function = """
-    def readFiles(self, file_pdb=None, file_psf=None, file_prm=None):
-        #
-        if file_pdb != None: self.pdb.readFile(file_pdb)
-        if file_psf != None: self.psf.readFile(file_psf)
-        if file_prm != None: self.prm.readFile(file_prm)
-    """
     
     def readFiles(self, *files):
        
@@ -606,8 +599,64 @@ class NAMDdata:
                     self.prm.readFile(f)
                 else: 
                     print("file:" + f + "does not have pdb, psf or prm as an extension")
+    
+    def get_cycles_oflength(self,n):
+        def DFS(graph, marked, n, vert, start, count, cycle): 
+            global cycles_sets
+            
+            marked[vert] = True  # mark the vertex vert as visited 
+            cycle.append(vert)
+            
+            if n == 0:  # if the path of length (n-1) is found 
+                if graph.has_edge(vert,start): # Check if vertex vert ends with vertex start 
+                    count = count + 1
+                    cycles_sets.add(frozenset(cycle))
+                    #print(cycle)
         
+                # mark vert as un-visited to make it usable again. 
+                marked[vert] = False
+                cycle.pop()
         
+                return count 
+            # For searching every possible path of length (n-1) 
+            for i in graph.nodes(): 
+                if not marked[i] and graph.has_edge(vert,i): 
+                    # DFS for searching path by decreasing length by 1 
+                    count = DFS(graph, marked, n-1, i, start, count,cycle) 
+        
+            # marking vert as unvisited to make it 
+            # usable again. 
+            marked[vert] = False
+            cycle.pop()
+            return count
+        # Counts cycles of length 
+        # N in an undirected 
+        # and connected graph. 
+        def countCycles( graph, n): 
+            # all vertex are marked un-visited initially. 
+            marked = [False] * (len(graph) + 1)
+        
+            # Searching for cycle by using v-n+1 vertices s
+            count = 0
+            for atom in graph.nodes():
+                #print("start: " , atom, " con adyacencias ", graph.neighbors(n))
+                count = DFS(graph, marked, n-1, atom, atom, count, []) 
+                
+                # ith vertex is marked as visited and 
+                # will not be visited again. 
+                #marked[atom] = True
+            
+            return int(count/2) 
+        cycles_sets = set()
+        pairs = zip(self.psf.bonds['atom1'], self.psf.bonds['atom2'])
+        g = nx.Graph(pairs)
+        ngon_bonds = countCycles(g,n)
+        polygons = [Polygon(*(self.pdb[self.pdb['ID'].isin(verts)]['ID',['x','y','z']])) for verts in cycle_sets]
+        return polygons
+        
+    def n_gon_connections(self, n):
+        pgons = get_cycles_oflength(n)
+        return Graph([(p1,p2) for p1 in pgons for p2 in pgons if p1.isneighbor(p2)])
 
 
 #=============================================================================
