@@ -1220,7 +1220,7 @@ class LammpsData():
         See "Format of a data file" section in https://lammps.sandia.gov/doc/read_data.html
     '''
 
-    def __init__(self):
+    def __init__(self,file=None):
 
         '''
         self['Ellipsoids']  = EllipsoidsDF()
@@ -1238,7 +1238,10 @@ class LammpsData():
         
         # molecular topology sections
         self.topologia = MolecularTopologyData()
-             
+        
+        if file:
+            self.read(file)
+        
 
     def read(self, filename):
     
@@ -1287,9 +1290,9 @@ class LammpsData():
                 if key == 'Angle Coeffs': self.angleCoeffs.add(data)                
                 if key == 'Dihedral Coeffs': self.dihedralCoeffs.add(data)
                 if key == 'Improper Coeffs':self.improperCoeffs.add(data)
-                if key == 'Atoms': self.atoms.add(data)                
+                if key == 'Atoms': self.atomproperty.atoms.add(data)                
                 if key == 'Velociteies': self.velocities.add(data)   
-                if key == 'Bonds': self.bonds.add(data)
+                if key == 'Bonds': self.topologia.bonds.add(data)
                 if key == 'Angles': self.angles.add(data)                
                 if key == 'Dihedrals': self.dihedrals.add(data)
                 if key == 'Impropers':self.impropers.add(data)                
