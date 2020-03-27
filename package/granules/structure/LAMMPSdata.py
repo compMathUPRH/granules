@@ -1295,7 +1295,7 @@ class LammpsData():
                 if key == 'Atoms': self.atomproperty.atoms.add(data)                
                 if key == 'Velociteies': self.atomproperty.velocities.add(data)   
                 if key == 'Bonds': self.topologia.bonds.add(data)
-                if key == 'Angles': self.angles.add(data)                
+                if key == 'Angles': self.topologia.angles.add(data)                
                 if key == 'Dihedrals': self.topologia.dihedrals.add(data)
                 if key == 'Impropers':self.topologia.impropers.add(data)                
               
