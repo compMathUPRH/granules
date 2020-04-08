@@ -33,8 +33,11 @@
 import pandas as pd
 import numpy as np
 import random
-import networkx as nx
 
+try:
+    import networkx as nx
+except Exception as e:
+    print("module networkx not found, some functionality may not be available")
 
 def findWithX(typeTuple, pardict):
     ''' Pair 'typeTuple' tuples with correct coefficients found on the 'pardict' 
@@ -1255,7 +1258,7 @@ class LammpsData():
         tipo = []
         caja = []
         
-        l = LammpsData()
+        #l = LammpsData()
                
         #Prepare cycle to enhance process by removing CAPS and spaces to get DF keyword. 
         keywords = ["Masses","Pair Coeffs","Bond Coeffs","Angle Coeffs","Dihedral Coeffs",
@@ -1455,12 +1458,52 @@ class LammpsData():
         else:
             sys.stderr.write("WARNING: No impropers to write.\n")
     
-          
+    
     def charmmForce(self):
         '''Hace una llamada a la funcion charmmForce() de la clase forceField() 
             para poder printiar los datos.'''
         
         self.forceField.charmmForce(self.atomproperty,self.topologia)
+
+    def append(self,other):
+        '''Une dos objetos de LammpsData, sus dataframes individuales'''
+        # OH YEAH
+        self.forceField.angleCoeffs = self.forceField.angleCoeffs.append(other.forceField.angleCoeffs)
+        self.forceField.bondCoeffs = self.forceField.bondCoeffs.append(other.forceField.bondCoeffs)
+        self.forceField.dihedralCoeffs = self.forceField.dihedralCoeffs.append(other.forceField.dihedralCoeffs)
+        self.forceField.improperCoeffs = self.forceField.improperCoeffs.append(other.forceField.improperCoeffs)
+        self.forceField.pairCoeffs = self.forceField.pairCoeffs.append(other.forceField.pairCoeffs)
+        #Oh YEaSH
+        self.atomproperty.atoms = self.atomproperty.atoms.append(other.atomproperty.atoms)
+        self.atomproperty.velocities = self.atomproperty.velocities.append(other.atomproperty.velocities)
+        self.atomproperty.masses = self.atomproperty.masses.append(other.atomproperty.masses)
+        #yeyeyeye
+        self.topologia.angles = self.topologia.angles.append(other.topologia.angles)
+        self.topologia.bonds = self.topologia.bonds.append(other.topologia.bonds)
+        self.topologia.dihedrals = self.topologia.dihedrals.append(other.topologia.dihedrals)
+        self.topologia.impropers = self.topologia.impropers.append(other.topologia.impropers)
+
+        
+    def copy(self):
+        ld = LammpsData()
+        # OH YEAH
+        ld.forceField.angleCoeffs = self.forceField.angleCoeffs.copy()
+        ld.forceField.bondCoeffs = self.forceField.bondCoeffs.copy()
+        ld.forceField.dihedralCoeffs = self.forceField.dihedralCoeffs.copy()
+        ld.forceField.improperCoeffs = self.forceField.improperCoeffs.copy()
+        ld.forceField.pairCoeffs = self.forceField.pairCoeffs.copy()
+        # OH YEAHHH
+        ld.atomproperty.atoms = self.atomproperty.atoms.copy()
+        ld.atomproperty.velocities = self.atomproperty.velocities.copy()
+        ld.atomproperty.masses = self.atomproperty.masses.copy()
+        # OH YEAHHH
+        ld.topologia.angles = self.topologia.angles.copy()
+        ld.topologia.bonds = self.topologia.bonds.copy()
+        ld.topologia.dihedrals = self.topologia.dihedrals.copy()
+        ld.topologia.impropers = self.topologia.impropers.copy()
+        
+        return ld
+
 
 if __name__ == "__main__":  # tests
     from NAMDdata import NAMDdata
