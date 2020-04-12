@@ -33,8 +33,11 @@
 import pandas as pd
 import numpy as np
 import random
-import networkx as nx
 
+try:
+    import networkx as nx
+except Exception as e:
+    print("module networkx not found, some functionality may not be available")
 
 def findWithX(typeTuple, pardict):
     ''' Pair 'typeTuple' tuples with correct coefficients found on the 'pardict' 
@@ -171,15 +174,15 @@ class ForceFieldData():
         self.improperCoeffs         = ImproperCoeffs()
         self.pairCoeffs             = PairCoeffs()
         
-     def setFromPSF(self,charmm,atomproperty,topology): #añadi este codigo nuevo 
+     def setFromPSF(self,charmm,atompropertydata,topology): #añadi este codigo nuevo 
         
-        self.pairCoeffs.setFromPSF(charmm, atomproperty.masses)
+        self.pairCoeffs.setFromPSF(charmm, atompropertydata.masses)
         self.bondCoeffs.setFromPSF(charmm, topology.bonds)
         self.angleCoeffs.setFromPSF(charmm, topology.angles)
         self.dihedralCoeffs.setFromPSF(charmm, topology.dihedrals)
         self.improperCoeffs.setFromPSF(charmm, topology.impropers)
         
-     def charmmNonBondEnergy(self):
+     def charmmNonBondEnergy(self,atompropertydata,topologia):
         ''' Computes CHARMM Lennard-Jones energy.
             Formula: Eps,i,j[(Rmin,i,j/ri,j)**12 - 2(Rmin,i,j/ri,j)**6]
                     Eps,i,j = sqrt(eps,i * eps,j)
@@ -195,7 +198,7 @@ class ForceFieldData():
         NONB_CUTOFF = 13.0
 
         # generate all pairs of atoms IDs
-        atoms = self.atoms.copy() #Cambio
+        atoms = atompropertydata.atoms.copy() #Cambio
         atomIds = atoms[['aID']]
         atomIds['key'] = np.ones(len(atomIds))
         atomIds = pd.merge(atomIds, atomIds, on='key')[['aID_x', 'aID_y']]
@@ -212,7 +215,7 @@ class ForceFieldData():
         # remove bonded atoms
         print(len(atomIds))
         atomIds['p'] = list(zip(atomIds.aID_x, atomIds.aID_y))
-        bonds = self.bonds.copy()
+        bonds = topologia.bonds.copy()
         bonds['p'] = list(zip(bonds.Atom1, bonds.Atom2))
         atomIds = atomIds.set_index('p').join(bonds.set_index('p'))
         atomIds = atomIds[atomIds.bID.isna()][['aID_x','aID_y','nbID','rij']].reset_index(drop=True)
@@ -221,7 +224,7 @@ class ForceFieldData():
 
         # remove angled atoms
         atomIds['p'] = list(zip(atomIds.aID_x, atomIds.aID_y))
-        angles = self.angles.copy()
+        angles = topologia.angles.copy()
         angles['p'] = list(zip(angles.Atom1, angles.Atom3))
         atomIds = atomIds.set_index('p').join(angles.set_index('p'))
         atomIds = atomIds[atomIds.anID.isna()][['aID_x','aID_y','nbID','rij']].reset_index(drop=True)
@@ -229,12 +232,12 @@ class ForceFieldData():
         print(len(atomIds))
 
         # get atom types and charges
-        atomIds = atomIds.set_index('aID_x').join(self.atoms[['aID', 'Q']].set_index('aID'))
+        atomIds = atomIds.set_index('aID_x').join(atompropertydata.atoms[['aID', 'Q']].set_index('aID'))
         atomIds.rename(columns={'Q':'qi'}, inplace=True)
-        atomIds = atomIds.join(self.atoms[['aID', 'aType']].set_index('aID')).reset_index(drop=True)
+        atomIds = atomIds.join(atompropertydata.atoms[['aID', 'aType']].set_index('aID')).reset_index(drop=True)
         atomIds.rename(columns={'aType':'aiType'}, inplace=True)
-        atomIds = atomIds.set_index('aID_y').join(self.atoms[['aID', 'Q']].set_index('aID'))
-        atomIds = atomIds.join(self.atoms[['aID', 'aType']].set_index('aID')).reset_index(drop=True)
+        atomIds = atomIds.set_index('aID_y').join(atompropertydata.atoms[['aID', 'Q']].set_index('aID'))
+        atomIds = atomIds.join(atompropertydata.atoms[['aID', 'aType']].set_index('aID')).reset_index(drop=True)
         atomIds.rename(columns={'aType':'ajType', 'Q':'qj'}, inplace=True)
         print(len(atomIds))
 
@@ -267,23 +270,23 @@ class ForceFieldData():
         return -np.sum(atomIds.epsilon * ((atomIds.sigma/atomIds.rij)**12 - (atomIds.sigma/atomIds.rij)**6)), \
                COULOMB * np.sum((atomIds.qi * atomIds.qj) / (atomIds.rij))
 
-     def charmmBondEnergy(self):
+     def charmmBondEnergy(self,atompropertydata,topologia):
         ''' Computes CHARMM bond energy.
 
             Formula: sum K * (bij - b0)**2
         '''
-        bi = self.bonds.set_index('Atom1').join(
-                self.atoms.set_index('aID')
+        bi = topologia.bonds.set_index('Atom1').join(
+                atompropertydata.atoms.set_index('aID')
              )[['bID','x', 'y', 'z']].set_index('bID')
 
-        bj = self.bonds.set_index('Atom2').join(
-                self.atoms.set_index('aID')
+        bj = topologia.bonds.set_index('Atom2').join(
+                atompropertydata.atoms.set_index('aID')
              )[['bID','x', 'y', 'z']].set_index('bID')
 
 
         bij = np.sqrt(np.sum((bi - bj) ** 2, axis='columns'))  # bonds lengths
 
-        coeffs = self.bonds[['bID','bType']].set_index('bType').join(
+        coeffs = topologia.bonds[['bID','bType']].set_index('bType').join(
                         self.bondCoeffs.set_index('bType')
                  ).reset_index(drop=True)
         K = coeffs[['bID','Spring_Constant']].set_index('bID').Spring_Constant
@@ -292,21 +295,21 @@ class ForceFieldData():
         return np.sum(K * (bij-b0)**2)
 
 
-     def charmmAngleEnergy(self):
+     def charmmAngleEnergy(self,atompropertydata,topologia):
         ''' Computes CHARMM angle energy.
             Formula: sum K * (aij - a0)**2
 
         '''
-        bi = self.angles.set_index('Atom1').join(
-                self.atoms.set_index('aID')
+        bi = topologia.angles.set_index('Atom1').join(
+                atompropertydata.atoms.set_index('aID')
              )[['anID','x', 'y', 'z']].set_index('anID')
 
-        bj = self.angles.set_index('Atom2').join(
-                self.atoms.set_index('aID')
+        bj = topologia.angles.set_index('Atom2').join(
+                atompropertydata.atoms.set_index('aID')
              )[['anID','x', 'y', 'z']].set_index('anID')
 
-        bk = self.angles.set_index('Atom3').join(
-                self.atoms.set_index('aID')
+        bk = topologia.angles.set_index('Atom3').join(
+                atompropertydata.atoms.set_index('aID')
              )[['anID','x', 'y', 'z']].set_index('anID')
 
         # compute angles
@@ -318,7 +321,7 @@ class ForceFieldData():
         dot = l1.x * l2.x + l1.y * l2.y + l1.z * l2.z
         angles = np.arccos(dot / (norm1 * norm2))
 
-        coeffs = self.angles[['anID','anType']].set_index('anType').join(
+        coeffs = topologia.angles[['anID','anType']].set_index('anType').join(
                         self.angleCoeffs.set_index('anType')
                  ).reset_index(drop=True)
 
@@ -327,24 +330,24 @@ class ForceFieldData():
 
         return np.sum(K * (angles-a0)**2)
 
-     def charmmDihedralsEnergy(self):
+     def charmmDihedralsEnergy(self,atompropertydata,topologia):
         ''' Computes CHARMM angle energy.
             Formula: sum K * (1 + cos(n * x - d))
         '''
-        bi = self.dihedrals.set_index('Atom1').join(
-                self.atoms.set_index('aID')
+        bi = topologia.dihedrals.set_index('Atom1').join(
+                atompropertydata.atoms.set_index('aID')
              )[['dID','x', 'y', 'z']].set_index('dID')
 
-        bj = self.dihedrals.set_index('Atom2').join(
-                self.atoms.set_index('aID')
+        bj = topologia.dihedrals.set_index('Atom2').join(
+                atompropertydata.atoms.set_index('aID')
              )[['dID','x', 'y', 'z']].set_index('dID')
 
-        bk = self.dihedrals.set_index('Atom3').join(
-                self.atoms.set_index('aID')
+        bk = topologia.dihedrals.set_index('Atom3').join(
+                atompropertydata.atoms.set_index('aID')
              )[['dID','x', 'y', 'z']].set_index('dID')
 
-        bl = self.dihedrals.set_index('Atom4').join(
-                self.atoms.set_index('aID')
+        bl = topologia.dihedrals.set_index('Atom4').join(
+                atompropertydata.atoms.set_index('aID')
              )[['dID','x', 'y', 'z']].set_index('dID')
 
         # compute equations of planes
@@ -361,8 +364,8 @@ class ForceFieldData():
         angles = np.degrees(np.arccos(np.abs(np.einsum('ij,ij->i', normals1, normals2))))
 
         # get CHARMM constants
-        print(self.dihedrals)
-        coeffs = self.dihedrals[['dID','dType']].set_index('dType').join(
+        print(topologia.dihedrals)
+        coeffs = topologia.dihedrals[['dID','dType']].set_index('dType').join(
                         self.dihedralCoeffs.set_index('dType')
                  ).reset_index(drop=True)
         K = coeffs[['dID','Kchi']].set_index('dID').Kchi
@@ -376,7 +379,7 @@ class ForceFieldData():
         '''
 
 
-     def charmmNonBondForce(self,atomproperty,topologia):
+     def charmmNonBondForce(self,atompropertydata,topologia):
         ''' Computes CHARMM Lennard-Jones energy.
             Formula: Eps,i,j[(Rmin,i,j/ri,j)**12 - 2(Rmin,i,j/ri,j)**6]
                     Eps,i,j = sqrt(eps,i * eps,j)
@@ -392,7 +395,7 @@ class ForceFieldData():
         NONB_CUTOFF = 13.0
 
         # generate all pairs of atoms IDs
-        atomIds = atomproperty.atoms[['aID']].copy()
+        atomIds = atompropertydata.atoms[['aID']].copy()
         atomIds['key'] = np.ones(len(atomIds))
         atomIds = pd.merge(atomIds, atomIds, on='key')[['aID_x', 'aID_y']]
         atomIds = atomIds[atomIds['aID_x'] < atomIds['aID_y']]
@@ -402,7 +405,7 @@ class ForceFieldData():
         # compute pairwise distances
         print(len(atomIds))
         from scipy.spatial.distance import pdist
-        atomIds['rij'] = pdist(atomproperty.atoms.set_index('aID')[['x', 'y', 'z']].values)
+        atomIds['rij'] = pdist(atompropertydata.atoms.set_index('aID')[['x', 'y', 'z']].values)
         atomIds = atomIds[atomIds['rij'] < NONB_CUTOFF]
 
         # remove bonded atoms
@@ -425,12 +428,12 @@ class ForceFieldData():
         print(len(atomIds))
 
         # get atom types and charges
-        atomIds = atomIds.set_index('aID_x', drop=False).join(atomproperty.atoms[['aID', 'Q']].set_index('aID'))
+        atomIds = atomIds.set_index('aID_x', drop=False).join(atompropertydata.atoms[['aID', 'Q']].set_index('aID'))
         atomIds.rename(columns={'Q':'qi'}, inplace=True)
-        atomIds = atomIds.join(atomproperty.atoms[['aID', 'aType']].set_index('aID')).reset_index(drop=True)
+        atomIds = atomIds.join(atompropertydata.atoms[['aID', 'aType']].set_index('aID')).reset_index(drop=True)
         atomIds.rename(columns={'aType':'aiType'}, inplace=True)
-        atomIds = atomIds.set_index('aID_y', drop=False).join(atomproperty.atoms[['aID', 'Q']].set_index('aID'))
-        atomIds = atomIds.join(atomproperty.atoms[['aID', 'aType']].set_index('aID')).reset_index(drop=True)
+        atomIds = atomIds.set_index('aID_y', drop=False).join(atompropertydata.atoms[['aID', 'Q']].set_index('aID'))
+        atomIds = atomIds.join(atompropertydata.atoms[['aID', 'aType']].set_index('aID')).reset_index(drop=True)
         atomIds.rename(columns={'aType':'ajType', 'Q':'qj'}, inplace=True)
         print(len(atomIds))
 
@@ -458,10 +461,10 @@ class ForceFieldData():
 
         print(atomIds.columns.values)
         bi = atomIds.set_index('aID_x').join(
-                atomproperty.atoms.set_index('aID')
+                atompropertydata.atoms.set_index('aID')
              )[['nbID', 'x', 'y', 'z']].set_index('nbID')
         bj = atomIds.set_index('aID_y').join(
-                atomproperty.atoms.set_index('aID')
+                atompropertydata.atoms.set_index('aID')
              )[['nbID', 'x', 'y', 'z']].set_index('nbID')
         
         bij = (bj - bi).div(atomIds.rij, axis=0)
@@ -477,17 +480,17 @@ class ForceFieldData():
         return ff
 
 
-     def charmmBondForce(self,atomproperty,topologia):
+     def charmmBondForce(self,atompropertydata,topologia):
         ''' Computes CHARMM bond energy.
             Formula: sum K * (bij - b0)**2
 
         '''
         bi = topologia.bonds.set_index('Atom1').join(
-                atomproperty.atoms.set_index('aID')
+                atompropertydata.atoms.set_index('aID')
              )[['bID','x', 'y', 'z']].set_index('bID')
 
         bj = topologia.bonds.set_index('Atom2').join(
-                atomproperty.atoms.set_index('aID')
+                atompropertydata.atoms.set_index('aID')
              )[['bID','x', 'y', 'z']].set_index('bID')
 
         bij = bj - bi  # bonds
@@ -515,20 +518,20 @@ class ForceFieldData():
 
 
 
-     def charmmAngleForce(self,atomproperty,topologia):
+     def charmmAngleForce(self,atompropertydata,topologia):
         ''' Computes CHARMM angle energy.
             Formula: sum K * (aij - a0)**2
         '''
         bi = topologia.angles.set_index('Atom1').join(
-                atomproperty.atoms.set_index('aID')
+                atompropertydata.atoms.set_index('aID')
              )[['anID','x', 'y', 'z']].set_index('anID')
 
         bj = topologia.angles.set_index('Atom2').join(
-                atomproperty.atoms.set_index('aID')
+                atompropertydata.atoms.set_index('aID')
              )[['anID','x', 'y', 'z']].set_index('anID')
 
         bk = topologia.angles.set_index('Atom3').join(
-                atomproperty.atoms.set_index('aID')
+                atompropertydata.atoms.set_index('aID')
              )[['anID','x', 'y', 'z']].set_index('anID')
 
         # compute angles
@@ -570,8 +573,10 @@ class ForceFieldData():
         #print (ff)
         return ff
 
-     def charmmForce(self,atomproperty,topologia):
-        return self.charmmNonBondForce(atomproperty,topologia).add(self.charmmBondForce(atomproperty,topologia), axis=0).add(self.charmmAngleForce(atomproperty,topologia), axis=0)
+     def charmmForce(self,atompropertydata,topologia):
+        return self.charmmNonBondForce(atompropertydata,topologia).add(self.charmmBondForce(atompropertydata,topologia), axis=0).add(self.charmmAngleForce
+                                      (atompropertydata,topologia), axis=0).add(self.charmmNonBondEnergy(atompropertydata,topologia)).add(self.charmmBondEnergy
+                                      (atompropertydata,topologia)).add(self.charmmAngleEnergy(atompropertydata,topologia)).add(self.charmmDihedralsEnergy(atompropertydata,topologia))
 
 	
 
@@ -1224,7 +1229,7 @@ class LammpsData():
         See "Format of a data file" section in https://lammps.sandia.gov/doc/read_data.html
     '''
 
-    def __init__(self):
+    def __init__(self,file=None):
 
         '''
         self['Ellipsoids']  = EllipsoidsDF()
@@ -1242,7 +1247,10 @@ class LammpsData():
         
         # molecular topology sections
         self.topologia = MolecularTopologyData()
-             
+        
+        if file:
+            self.read(file)
+        
 
     def read(self, filename):
     
@@ -1254,7 +1262,7 @@ class LammpsData():
         tipo = []
         caja = []
         
-        l = LammpsData()
+        #l = LammpsData()
                
         #Prepare cycle to enhance process by removing CAPS and spaces to get DF keyword. 
         keywords = ["Masses","Pair Coeffs","Bond Coeffs","Angle Coeffs","Dihedral Coeffs",
@@ -1285,18 +1293,18 @@ class LammpsData():
                         valid = False
                        
                 #Almacenar toda la data de esa seccion
-                if key == 'Masses': self.masses.add(data)
-                if key == 'Pair Coeffs': self.pairCoeffs.add(data)
-                if key == 'Bond Coeffs': self.bondCoeffs.add(data)
-                if key == 'Angle Coeffs': self.angleCoeffs.add(data)                
-                if key == 'Dihedral Coeffs': self.dihedralCoeffs.add(data)
-                if key == 'Improper Coeffs':self.improperCoeffs.add(data)
-                if key == 'Atoms': self.atoms.add(data)                
-                if key == 'Velociteies': self.velocities.add(data)   
-                if key == 'Bonds': self.bonds.add(data)
-                if key == 'Angles': self.angles.add(data)                
-                if key == 'Dihedrals': self.dihedrals.add(data)
-                if key == 'Impropers':self.impropers.add(data)                
+                if key == 'Masses': self.atomproperty.masses.add(data)
+                if key == 'Pair Coeffs': self.forceField.pairCoeffs.add(data)
+                if key == 'Bond Coeffs': self.forceField.bondCoeffs.add(data)
+                if key == 'Angle Coeffs': self.forceField.angleCoeffs.add(data)                
+                if key == 'Dihedral Coeffs': self.topologia.dihedralCoeffs.add(data)
+                if key == 'Improper Coeffs':self.forceField.improperCoeffs.add(data)
+                if key == 'Atoms': self.atomproperty.atoms.add(data)                
+                if key == 'Velociteies': self.atomproperty.velocities.add(data)   
+                if key == 'Bonds': self.topologia.bonds.add(data)
+                if key == 'Angles': self.topologia.angles.add(data)                
+                if key == 'Dihedrals': self.topologia.dihedrals.add(data)
+                if key == 'Impropers':self.topologia.impropers.add(data)                
               
         arch.close()                
            
@@ -1420,7 +1428,7 @@ class LammpsData():
 
         #Atoms
         cfile.write('\nAtoms\n\n') 
-        #cfile.write(self.atoms.to_string(index=False, columns=self.atoms.columns, header=False))
+        #cfile.write(self.atomproperty.atoms.to_string(index=False, columns=self.atomproperty.atoms.columns, header=False))
         cfile.write(self.atomproperty.atoms.to_string(index=False, columns=self.atomproperty.atoms.columns, header=False))
         cfile.write("\n")
 
@@ -1469,12 +1477,52 @@ class LammpsData():
         else:
             sys.stderr.write("WARNING: No impropers to write.\n")
     
-          
+    
     def charmmForce(self):
         '''Hace una llamada a la funcion charmmForce() de la clase forceField() 
             para poder printiar los datos.'''
         
         self.forceField.charmmForce(self.atomproperty,self.topologia)
+
+    def append(self,other):
+        '''Une dos objetos de LammpsData, sus dataframes individuales'''
+        # OH YEAH
+        self.forceField.angleCoeffs = self.forceField.angleCoeffs.append(other.forceField.angleCoeffs)
+        self.forceField.bondCoeffs = self.forceField.bondCoeffs.append(other.forceField.bondCoeffs)
+        self.forceField.dihedralCoeffs = self.forceField.dihedralCoeffs.append(other.forceField.dihedralCoeffs)
+        self.forceField.improperCoeffs = self.forceField.improperCoeffs.append(other.forceField.improperCoeffs)
+        self.forceField.pairCoeffs = self.forceField.pairCoeffs.append(other.forceField.pairCoeffs)
+        #Oh YEaSH
+        self.atomproperty.atoms = self.atomproperty.atoms.append(other.atomproperty.atoms)
+        self.atomproperty.velocities = self.atomproperty.velocities.append(other.atomproperty.velocities)
+        self.atomproperty.masses = self.atomproperty.masses.append(other.atomproperty.masses)
+        #yeyeyeye
+        self.topologia.angles = self.topologia.angles.append(other.topologia.angles)
+        self.topologia.bonds = self.topologia.bonds.append(other.topologia.bonds)
+        self.topologia.dihedrals = self.topologia.dihedrals.append(other.topologia.dihedrals)
+        self.topologia.impropers = self.topologia.impropers.append(other.topologia.impropers)
+
+        
+    def copy(self):
+        ld = LammpsData()
+        # OH YEAH
+        ld.forceField.angleCoeffs = self.forceField.angleCoeffs.copy()
+        ld.forceField.bondCoeffs = self.forceField.bondCoeffs.copy()
+        ld.forceField.dihedralCoeffs = self.forceField.dihedralCoeffs.copy()
+        ld.forceField.improperCoeffs = self.forceField.improperCoeffs.copy()
+        ld.forceField.pairCoeffs = self.forceField.pairCoeffs.copy()
+        # OH YEAHHH
+        ld.atomproperty.atoms = self.atomproperty.atoms.copy()
+        ld.atomproperty.velocities = self.atomproperty.velocities.copy()
+        ld.atomproperty.masses = self.atomproperty.masses.copy()
+        # OH YEAHHH
+        ld.topologia.angles = self.topologia.angles.copy()
+        ld.topologia.bonds = self.topologia.bonds.copy()
+        ld.topologia.dihedrals = self.topologia.dihedrals.copy()
+        ld.topologia.impropers = self.topologia.impropers.copy()
+        
+        return ld
+
 
 if __name__ == "__main__":  # tests
     from NAMDdata import NAMDdata
