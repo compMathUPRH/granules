@@ -19,3 +19,9 @@ l.loadNAMDdata(ch)
 l.writeConf("2rvd.data")
 
 print(l.charmmForce())
+c = l.atomproperty.atoms.center()
+print(c)
+print(l.atomproperty.atoms)
+l.atomproperty.atoms.move(-c)
+print(l.atomproperty.atoms)
+
