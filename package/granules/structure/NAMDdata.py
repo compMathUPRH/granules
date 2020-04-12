@@ -599,7 +599,25 @@ class NAMDdata:
                     self.prm.readFile(f)
                 else: 
                     print("file:" + f + "does not have pdb, psf or prm as an extension")
-    
+
+
+    def loadWolffiaMixture(self, mix):
+        '''
+        Converts a Wolffia mixture to a NAMDData self object.
+
+        @param: mix a Wolffia Mixture object.
+        '''
+        import tempfile
+
+        tdir = tempfile.TemporaryDirectory(suffix="granules_")
+        filesSufix = tdir.name + "/namdTempFile"
+        mix.writeFiles(filesSufix)
+        self.readFiles(filesSufix + ".pdb", filesSufix + ".psf", filesSufix + ".prm")
+        tdir.cleanup()
+
+        return self
+
+ 
     def get_cycles_oflength(self,n):
         def DFS(graph, marked, n, vert, start, count, cycle): 
             global cycles_sets

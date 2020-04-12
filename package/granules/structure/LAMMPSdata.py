@@ -659,9 +659,13 @@ class AtomsDF(AtomProperty):
                     }))
         #print(self.dtypes)
     
+    def center(self):
+        return self[['x', 'y', 'z']].mean()
 
-
-        
+    def move(self, b):
+        for coord in ['x', 'y', 'z']:
+            self[coord] = self[coord] + b[coord]
+        return self
 
 
 class MassesDF(AtomProperty):
@@ -1318,6 +1322,21 @@ class LammpsData():
         self.dihedralCoeffs.setFromPSF(charmm, self.dihedrals)
         self.improperCoeffs.setFromPSF(charmm, self.impropers)
         '''
+
+    def loadWolffiaMixture(self, mix):
+        '''
+        Converts a Wolffia mixture to a LammpsData self object.
+
+        @param: mix a Wolffia Mixture object.
+        '''
+        from structure.NAMDdata import NAMDdata
+
+        charmm = NAMDdata()
+        charmm.loadWolffiaMixture(mix)
+        self.loadNAMDdata(charmm)
+ 
+        return self
+
 
     def writeConf(self, filename):
         import sys
