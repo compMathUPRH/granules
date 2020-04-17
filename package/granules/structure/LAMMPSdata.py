@@ -132,6 +132,16 @@ class AtomPropertyData():
         self.atoms.setFromPSF(charmm)
         self.velocities.setToZero(self.atoms)
         self.masses.setFromPSF(charmm.psf.atoms,self.atoms)
+
+    def centerMass(self):
+        '''Regresa el centro de masa.'''
+        coordMass = self.atoms.set_index('aType')[['x','y','z']].join(self.masses.set_index('aType'))
+        for c in ['x','y','z']:
+            coordMass[c] = coordMass[c] * coordMass['Mass']
+        coordMass = coordMass[['x','y','z']]
+
+        return coordMass.mean()
+        
   
 class MolecularTopologyData():
     def __init__(self):
