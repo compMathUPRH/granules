@@ -13,5 +13,5 @@ clean:
 	#@rm -f package/granules/structure/__pycache__/NAMDdata.cpython-37.pyc
 	#@rm -f package/granules/structure/__pycache__/__init__.cpython-37.pyc
 
-	@cd package/granules;make clean
 	@cd doc/Diagramas ; make clean
+	@cd package/granules;make clean
