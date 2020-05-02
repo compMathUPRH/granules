@@ -207,30 +207,33 @@ class ForceFieldData():
 
         NONB_CUTOFF = 13.0
 
+        print("ForceFieldData.charmmNonBondEnergy")
+        
         # generate all pairs of atoms IDs
         atoms = atompropertydata.atoms.copy() #Cambio
         atomIds = atoms[['aID']]
-        atomIds['key'] = np.ones(len(atomIds))
+        print("ForceFieldData.charmmNonBondEnergy atomIds.columns=", atomIds.columns)
+        atomIds = atomIds.assign(key=np.ones(len(atomIds)))
+        #atomIds['key'] = np.ones(len(atomIds))
+        #print("ForceFieldData.charmmNonBondEnergy atomIds.columns=", atomIds.columns)
         atomIds = pd.merge(atomIds, atomIds, on='key')[['aID_x', 'aID_y']]
         atomIds = atomIds[atomIds['aID_x'] < atomIds['aID_y']]
 
         atomIds['nbID'] = np.arange(len(atomIds))
 
         # compute pairwise distances
-        print(len(atomIds))
+        print("ForceFieldData.charmmNonBondEnergy len(atomIds) =", len(atomIds))
         from scipy.spatial.distance import pdist
         atomIds['rij'] = pdist(atoms.set_index('aID')[['x', 'y', 'z']].values)
         atomIds = atomIds[atomIds['rij'] < NONB_CUTOFF]
 
         # remove bonded atoms
-        print(len(atomIds))
         atomIds['p'] = list(zip(atomIds.aID_x, atomIds.aID_y))
         bonds = topologia.bonds.copy()
         bonds['p'] = list(zip(bonds.Atom1, bonds.Atom2))
         atomIds = atomIds.set_index('p').join(bonds.set_index('p'))
         atomIds = atomIds[atomIds.bID.isna()][['aID_x','aID_y','nbID','rij']].reset_index(drop=True)
         del bonds
-        print(len(atomIds))
 
         # remove angled atoms
         atomIds['p'] = list(zip(atomIds.aID_x, atomIds.aID_y))
@@ -239,7 +242,6 @@ class ForceFieldData():
         atomIds = atomIds.set_index('p').join(angles.set_index('p'))
         atomIds = atomIds[atomIds.anID.isna()][['aID_x','aID_y','nbID','rij']].reset_index(drop=True)
         del angles
-        print(len(atomIds))
 
         # get atom types and charges
         atomIds = atomIds.set_index('aID_x').join(atompropertydata.atoms[['aID', 'Q']].set_index('aID'))
@@ -249,7 +251,7 @@ class ForceFieldData():
         atomIds = atomIds.set_index('aID_y').join(atompropertydata.atoms[['aID', 'Q']].set_index('aID'))
         atomIds = atomIds.join(atompropertydata.atoms[['aID', 'aType']].set_index('aID')).reset_index(drop=True)
         atomIds.rename(columns={'aType':'ajType', 'Q':'qj'}, inplace=True)
-        print(len(atomIds))
+        print("ForceFieldData.charmmNonBondEnergy len(atomIds (clean)) =", len(atomIds))
 
         # get epsilons and sigmas for each atom type
         atomIds = atomIds.set_index('aiType').join(
@@ -269,7 +271,8 @@ class ForceFieldData():
 
 
         atomIds.set_index('nbID', inplace=True)
-        print(atomIds)
+        print("ForceFieldData.charmmNonBondEnergy END")
+        #print(atomIds)
         # return LJ and Coulomb
         COULOMB = 332.0636
 
@@ -403,7 +406,8 @@ class ForceFieldData():
         from scipy.constants import epsilon_0, physical_constants
 
         NONB_CUTOFF = 13.0
-
+        print("ForceFieldData.charmmNonBondForce()")
+        
         # generate all pairs of atoms IDs
         atomIds = atompropertydata.atoms[['aID']].copy()
         atomIds['key'] = np.ones(len(atomIds))
@@ -413,20 +417,20 @@ class ForceFieldData():
         atomIds['nbID'] = np.arange(len(atomIds))
 
         # compute pairwise distances
-        print(len(atomIds))
+        print('ForceFieldData.charmmNonBondForce: len(atomIds)=', len(atomIds))
         from scipy.spatial.distance import pdist
         atomIds['rij'] = pdist(atompropertydata.atoms.set_index('aID')[['x', 'y', 'z']].values)
         atomIds = atomIds[atomIds['rij'] < NONB_CUTOFF]
 
         # remove bonded atoms
-        print(len(atomIds))
+        print('ForceFieldData.charmmNonBondForce: len(atomIds < NONB_CUTOFF)=', len(atomIds))
         atomIds['p'] = list(zip(atomIds.aID_x, atomIds.aID_y))
         bonds = topologia.bonds.copy()
         bonds['p'] = list(zip(bonds.Atom1, bonds.Atom2))
         atomIds = atomIds.set_index('p').join(bonds.set_index('p'))
         atomIds = atomIds[atomIds.bID.isna()][['aID_x','aID_y','nbID','rij']].reset_index(drop=True)
         del bonds
-        print(len(atomIds))
+        print('ForceFieldData.charmmNonBondForce: len(atomIds < NONB_CUTOFF -  BONDS)=', len(atomIds))
 
         # remove angled atoms
         atomIds['p'] = list(zip(atomIds.aID_x, atomIds.aID_y))
@@ -435,7 +439,7 @@ class ForceFieldData():
         atomIds = atomIds.set_index('p').join(angles.set_index('p'))
         atomIds = atomIds[atomIds.anID.isna()][['aID_x','aID_y','nbID','rij']].reset_index(drop=True)
         del angles
-        print(len(atomIds))
+        print('ForceFieldData.charmmNonBondForce: len(atomIds < NONB_CUTOFF -  BONDS - ABGLES)=',len(atomIds))
 
         # get atom types and charges
         atomIds = atomIds.set_index('aID_x', drop=False).join(atompropertydata.atoms[['aID', 'Q']].set_index('aID'))
@@ -445,7 +449,6 @@ class ForceFieldData():
         atomIds = atomIds.set_index('aID_y', drop=False).join(atompropertydata.atoms[['aID', 'Q']].set_index('aID'))
         atomIds = atomIds.join(atompropertydata.atoms[['aID', 'aType']].set_index('aID')).reset_index(drop=True)
         atomIds.rename(columns={'aType':'ajType', 'Q':'qj'}, inplace=True)
-        print(len(atomIds))
 
         # get epsilons and sigmas for each atom type
         atomIds = atomIds.set_index('aiType').join(
@@ -469,7 +472,6 @@ class ForceFieldData():
         COULOMB = 332.0636
 
 
-        print(atomIds.columns.values)
         bi = atomIds.set_index('aID_x').join(
                 atompropertydata.atoms.set_index('aID')
              )[['nbID', 'x', 'y', 'z']].set_index('nbID')
@@ -532,6 +534,8 @@ class ForceFieldData():
         ''' Computes CHARMM angle energy.
             Formula: sum K * (aij - a0)**2
         '''
+        
+        print("ForceFieldData.charmmAngleForce")
         bi = topologia.angles.set_index('Atom1').join(
                 atompropertydata.atoms.set_index('aID')
              )[['anID','x', 'y', 'z']].set_index('anID')
@@ -581,12 +585,20 @@ class ForceFieldData():
 
         ff = f1.add(f2.add(f3, axis=0, fill_value=0), axis=0, fill_value=0)
         #print (ff)
+        print("ForceFieldData.charmmAngleForce  END")
         return ff
 
      def charmmForce(self,atompropertydata,topologia):
-        return self.charmmNonBondForce(atompropertydata,topologia).add(self.charmmBondForce(atompropertydata,topologia), axis=0).add(self.charmmAngleForce
-                                      (atompropertydata,topologia), axis=0).add(self.charmmNonBondEnergy(atompropertydata,topologia)).add(self.charmmBondEnergy
-                                      (atompropertydata,topologia)).add(self.charmmAngleEnergy(atompropertydata,topologia)).add(self.charmmDihedralsEnergy(atompropertydata,topologia))
+        print("ForceFieldData.charmmForce()")
+        return self.charmmNonBondForce(atompropertydata,topologia).add(
+                self.charmmBondForce(atompropertydata,topologia), axis=0).add(
+                self.charmmAngleForce(atompropertydata,topologia), axis=0)
+        
+     def charmmEnergy(self,atompropertydata,topologia):
+        return self.charmmNonBondEnergy(atompropertydata,topologia).add(
+                self.charmmBondEnergy(atompropertydata,topologia)).add(
+                self.charmmAngleEnergy(atompropertydata,topologia)).add(
+                self.charmmDihedralsEnergy(atompropertydata,topologia))
 
 	
 
@@ -1347,7 +1359,7 @@ class LammpsData():
 
         @param: mix a Wolffia Mixture object.
         '''
-        from structure.NAMDdata import NAMDdata
+        from granules.structure.NAMDdata import NAMDdata
 
         charmm = NAMDdata()
         charmm.loadWolffiaMixture(mix)
@@ -1492,6 +1504,7 @@ class LammpsData():
         '''Hace una llamada a la funcion charmmForce() de la clase forceField() 
             para poder printiar los datos.'''
         
+        print("LammpsData.charmmForce()")
         self.forceField.charmmForce(self.atomproperty,self.topologia)
 
     def append(self,other):
