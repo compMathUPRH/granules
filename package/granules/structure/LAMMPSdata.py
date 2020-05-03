@@ -125,13 +125,13 @@ class AtomPropertyData():
         self.velocities  = VelocitiesDF()
         self.masses      = MassesDF()
                
-    def setFromPSF(self,charmm): 
-        '''Llama a la funcion setFromPSF() de las clases de la clase AtomPropertyData,
+    def setFromNAMD(self,charmm): 
+        '''Llama a la funcion setFromNAMD() de las clases de la clase AtomPropertyData,
             asignadas en los atributo.'''
             
-        self.atoms.setFromPSF(charmm)
+        self.atoms.setFromNAMD(charmm)
         self.velocities.setToZero(self.atoms)
-        self.masses.setFromPSF(charmm.psf.atoms,self.atoms)
+        self.masses.setFromNAMD(charmm.psf.atoms,self.atoms)
 
     def centerMass(self):
         '''Regresa el centro de masa.'''
@@ -153,15 +153,15 @@ class MolecularTopologyData():
         self.dihedrals   = DihedralsDF()
         self.impropers   = ImpropersDF()
         
-    def setFromPSF(self,charmm): 
-        '''Llama a la funcion setFromPSF() de las clases de la clase MolecularTopolyData,
+    def setFromNAMD(self,charmm): 
+        '''Llama a la funcion setFromNAMD() de las clases de la clase MolecularTopolyData,
             asignadas en los atributo.'''
         
         # molecular topology sections
-        self.bonds.setFromPSF(charmm)
-        self.angles.setFromPSF(charmm)
-        self.dihedrals.setFromPSF(charmm)
-        self.impropers.setFromPSF(charmm)
+        self.bonds.setFromNAMD(charmm)
+        self.angles.setFromNAMD(charmm)
+        self.dihedrals.setFromNAMD(charmm)
+        self.impropers.setFromNAMD(charmm)
 
   
 
@@ -185,13 +185,13 @@ class ForceFieldData():
         self.improperCoeffs         = ImproperCoeffs()
         self.pairCoeffs             = PairCoeffs()
         
-     def setFromPSF(self,charmm,atompropertydata,topology): #añadi este codigo nuevo 
+     def setFromNAMD(self,charmm,atompropertydata,topology): #añadi este codigo nuevo 
         
-        self.pairCoeffs.setFromPSF(charmm, atompropertydata.masses)
-        self.bondCoeffs.setFromPSF(charmm, topology.bonds)
-        self.angleCoeffs.setFromPSF(charmm, topology.angles)
-        self.dihedralCoeffs.setFromPSF(charmm, topology.dihedrals)
-        self.improperCoeffs.setFromPSF(charmm, topology.impropers)
+        self.pairCoeffs.setFromNAMD(charmm, atompropertydata.masses)
+        self.bondCoeffs.setFromNAMD(charmm, topology.bonds)
+        self.angleCoeffs.setFromNAMD(charmm, topology.angles)
+        self.dihedralCoeffs.setFromNAMD(charmm, topology.dihedrals)
+        self.improperCoeffs.setFromNAMD(charmm, topology.impropers)
         
      def charmmNonBondEnergy(self,atompropertydata,topologia):
         ''' Computes CHARMM Lennard-Jones energy.
@@ -636,7 +636,7 @@ class AtomsDF(AtomProperty):
                   'x', 'y', 'z', 'Nx', 'Ny', 'Nz'])
         super(AtomsDF, self).__init__(self.drop([0]))
         
-    def setFromPSF(self, charmm):
+    def setFromNAMD(self, charmm):
         ''' Extracts info from ATOMS object of a PSF object into self.
 
         Parameter
@@ -719,7 +719,7 @@ class MassesDF(AtomProperty):
             super(MassesDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
             super(MassesDF, self).__init__(self.drop([0]))
  
-    def setFromPSF(self, psf_atoms, atoms):
+    def setFromNAMD(self, psf_atoms, atoms):
         ''' Extracts info from ATOMS object of a PSF object into self.
 
         Parameter
@@ -777,7 +777,7 @@ class AnglesDF(MolecularTopology):
         super(AnglesDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
         super(AnglesDF, self).__init__(self.drop([0]))
 
-    def setFromPSF(self, charmm):
+    def setFromNAMD(self, charmm):
         ''' Extracts info from ATOMS object of a PSF object into self.
 
         Parameter
@@ -828,7 +828,7 @@ class BondsDF(MolecularTopology):
         super(BondsDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
         super(BondsDF, self).__init__(self.drop([0]))
 
-    def setFromPSF(self, charmm):
+    def setFromNAMD(self, charmm):
         ''' Extracts info from ATOMS object of a PSF object into self.
 
         Parameter
@@ -874,7 +874,7 @@ class DihedralsDF(MolecularTopology):
         super(DihedralsDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
         super(DihedralsDF, self).__init__(self.drop([0]))
 
-    def setFromPSF(self, charmm):
+    def setFromNAMD(self, charmm):
         ''' Extracts info from ATOMS object of a PSF object into self.
 
         Parameter
@@ -929,7 +929,7 @@ class ImpropersDF(MolecularTopology):
         super(ImpropersDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
         super(ImpropersDF, self).__init__(self.drop([0]))
 
-    def setFromPSF(self, charmm):
+    def setFromNAMD(self, charmm):
         ''' Extracts info from ATOMS object of a PSF object into self.
 
         Parameter
@@ -983,7 +983,7 @@ class PairCoeffs(ForceField):
     def __init__(self,data=None, dtype=None, copy=False):
         super(PairCoeffs, self).__init__(data=data, columns=['aType', 'epsilon', 'sigma', 'epsilon1_4', 'sigma1_4'], dtype=dtype, copy=copy)
 
-    def setFromPSF(self, charmm, mass):
+    def setFromNAMD(self, charmm, mass):
         ''' Extracts info from PRM and PSF objects into self.
 
         Parameter
@@ -1028,7 +1028,7 @@ class AngleCoeffs(ForceField):
     def __init__(self,data=None, dtype=None, copy=False):
         super(AngleCoeffs, self).__init__(data =data, columns=['anType', 'Ktheta', 'Theta0', 'Kub', 'S0'], dtype=dtype, copy=copy)
 
-    def setFromPSF(self, charmm, angles):
+    def setFromNAMD(self, charmm, angles):
         ''' Extracts info from PRM and PSF objects into self.
 
         Parameter
@@ -1079,7 +1079,7 @@ class BondCoeffs(ForceField):
     def __init__(self,data=None, dtype=None, copy=False):
         super(BondCoeffs, self).__init__(data=data, columns=['bType','Spring_Constant','Eq_Length'], dtype=dtype, copy=copy)
 
-    def setFromPSF(self, charmm, bonds):
+    def setFromNAMD(self, charmm, bonds):
         ''' Extracts info from PRM and PSF objects into self.
 
         Parameter
@@ -1124,7 +1124,7 @@ class DihedralCoeffs(ForceField):
     def __init__(self,data=None, dtype=None, copy=False):
         super(DihedralCoeffs, self).__init__(data=data, columns=['dType', 'Kchi', 'n', 'delta'], dtype=dtype, copy=copy)
 
-    def setFromPSF(self, charmm, dihedrals):
+    def setFromNAMD(self, charmm, dihedrals):
         ''' Extracts info from PRM and PSF objects into self.
 
         Parameter
@@ -1181,7 +1181,7 @@ class ImproperCoeffs(ForceField):
     def __init__(self,data=None, dtype=None, copy=False):
         super(ImproperCoeffs, self).__init__(data=data, columns=['iType', 'Kchi', 'n', 'delta'], dtype=dtype, copy=copy)
 
-    def setFromPSF(self, charmm, impropers):
+    def setFromNAMD(self, charmm, impropers):
         ''' Extracts info from PRM and PSF objects into self.
 
         Parameter
@@ -1287,6 +1287,8 @@ class LammpsData():
         # molecular topology sections
         self.topologia = MolecularTopologyData()
         
+        self.region = Box()
+        
         if file:
             self.read(file)
         
@@ -1353,33 +1355,36 @@ class LammpsData():
         #print("loadNAMDdata=",charmm.psf.dihedrals)
         
         #AtomPropertyData
-        self.atomproperty.setFromPSF(charmm)
+        self.atomproperty.setFromNAMD(charmm)
         
         # MolecularTopologyData
-        self.topologia.setFromPSF(charmm)
+        self.topologia.setFromNAMD(charmm)
        
         # ForceFieldData
       
-        self.forceField.setFromPSF(charmm, self.atomproperty,self.topologia)
+        self.forceField.setFromNAMD(charmm, self.atomproperty,self.topologia)
         
+        # MolecularTopologyData
+        self.region.setFromNAMD(charmm)
+       
         '''
-        self.pairCoeffs.setFromPSF(charmm, self.masses)
-        self.bondCoeffs.setFromPSF(charmm, self.bonds)
-        self.angleCoeffs.setFromPSF(charmm, self.angles)
-        self.dihedralCoeffs.setFromPSF(charmm, self.dihedrals)
-        self.improperCoeffs.setFromPSF(charmm, self.impropers)
+        self.pairCoeffs.setFromNAMD(charmm, self.masses)
+        self.bondCoeffs.setFromNAMD(charmm, self.bonds)
+        self.angleCoeffs.setFromNAMD(charmm, self.angles)
+        self.dihedralCoeffs.setFromNAMD(charmm, self.dihedrals)
+        self.improperCoeffs.setFromNAMD(charmm, self.impropers)
         '''
 
-    def loadWolffiaMixture(self, mix):
+    def loadWolffia(self, wolffia):
         '''
-        Converts a Wolffia mixture to a LammpsData self object.
+        Converts a WolffiaState to a LammpsData self object.
 
         @param: mix a Wolffia Mixture object.
         '''
         from granules.structure.NAMDdata import NAMDdata
 
         charmm = NAMDdata()
-        charmm.loadWolffiaMixture(mix)
+        charmm.loadWolffia(wolffia)
         self.loadNAMDdata(charmm)
  
         return self
@@ -1399,10 +1404,14 @@ class LammpsData():
                                 len(self.forceField.bondCoeffs), len(self.forceField.angleCoeffs), len(self.forceField.dihedralCoeffs), len(self.forceField.improperCoeffs)) 
 
         # Improve and ask from where we get this data
-        box_section =  ' ' + str(self.atomproperty.atoms['x'].min()-2) + ' ' + str(self.atomproperty.atoms['x'].max()+2) + ' xlo xhi\n' + \
-                       ' ' + str(self.atomproperty.atoms['y'].min()-2) + ' ' + str(self.atomproperty.atoms['y'].max()+2) + ' ylo yhi\n' + \
-                       ' ' + str(self.atomproperty.atoms['z'].min()-2) + ' ' + str(self.atomproperty.atoms['z'].max()+2) + ' zlo zhi\n'   \
-
+        #box_section =  ' ' + str(self.atomproperty.atoms['x'].min()-2) + ' ' + str(self.atomproperty.atoms['x'].max()+2) + ' xlo xhi\n' + \
+        #               ' ' + str(self.atomproperty.atoms['y'].min()-2) + ' ' + str(self.atomproperty.atoms['y'].max()+2) + ' ylo yhi\n' + \
+        #               ' ' + str(self.atomproperty.atoms['z'].min()-2) + ' ' + str(self.atomproperty.atoms['z'].max()+2) + ' zlo zhi\n'   
+        maxminstr = [str(x) for x in self.region.maxsMins]
+        box_section =  ' '.join(maxminstr[:2])  + ' xlo xhi\n' + \
+                       ' '.join(maxminstr[2:4]) + ' ylo yhi\n' + \
+                       ' '.join(maxminstr[4:])  + ' zlo zhi\n'
+                       
         # Header
         cfile.write("LAMMPS Description\n\n")
         cfile.write(overview_section + box_section)
@@ -1598,6 +1607,126 @@ class LammpsData():
         self.topologia = MolecularTopologyData()
         '''
       
+_AVOGRADRO_CONSTANT_ = 6.02214129e+23
+
+class Region:
+    '''
+        Container for the Mixture.
+    '''
+    
+    DENSITY = {None:[0,0,1],"WATER": [0.9970479,298.15,18.01528], "Chloroform":[1.483,298.15,119.38], "Chloroform (4 atoms)": [1.483,298.15,119.38], "Acetone": [0.786,293.15,58.08], "THF": [0.886,293.15,72.11], "Argon": [5.537, 0.03049,39.948], "Methanol": [0.791,293.15,32.04], "Selected Molecule": [0.9970479,298.15,18.01528]}
+    DI = 0
+    TI = 1
+    MI = 2
+
+    def __init__(self, cid=None):
+        '''
+            id (int): identifier (LAMPS style)
+        '''
+        # Lammps-style variables
+        self.id = cid
+        
+    def lammpsCommand(self, mixture):
+        ''' to be done '''
+        pass
+
+    def setId(self, cid): self.id = cid
+    
+    def amountSolventMolecules(self, solvent):
+            #import numpy
+            global _AVOGRADRO_CONSTANT_
+            D = self.DENSITY[solvent][self.DI]
+            MM = self.DENSITY[solvent][self.MI]
+            V = self.volume() / 1E24
+            if V == 0: return 0
+            
+            #print "computeMolecules ", D,V,MM,D * V / MM * _AVOGRADRO_CONSTANT_
+            n = int(D * V / MM * _AVOGRADRO_CONSTANT_)
+    
+            return n
+
+
+# ===========================================
+class Box(Region):
+    '''
+        Defines a box with rectangular anlges (similar to block in LAMMPS)
+    '''
+    def __init__(self, cid=None, maxsMins=None):
+        '''        
+            maxsMins = (xmin, xmax, ymin, ymax, zmin, zmax) or None
+        '''
+        super(Box, self).setId(cid)
+    
+        self.setMaxsMins(maxsMins)
+    
+    def getMaxsMins(self): return self.maxsMins
+    
+    def getCenter(self):
+        cellBasisVectors = self.getCellBasisVectors()
+        x = (cellBasisVectors[0][0]+cellBasisVectors[1][0]+cellBasisVectors[2][0])/2
+        y = (cellBasisVectors[0][1]+cellBasisVectors[1][1]+cellBasisVectors[2][1])/2
+        z = (cellBasisVectors[0][2]+cellBasisVectors[1][2]+cellBasisVectors[2][2])/2
+        return [x,y,z]
+
+    def getFaces(self):
+        cellBasisVectors = self.getCellBasisVectors()
+        left = self.cellOrigin[0]
+        right = left + cellBasisVectors[0][0]
+        bottom = self.cellOrigin[1]
+        top = bottom + cellBasisVectors[1][1]
+        zNear = self.cellOrigin[2]
+        zFar = zNear + cellBasisVectors[2][2]
+            
+        return [left, right, bottom, top, zNear, zFar]
+
+    def lammpsCommand(self):
+        return "region {:d} style block {}".format(self.id, ' '.join(self.maxsMins))
+    
+    def setFromNAMD(self, charmm):
+        ''' Extracts info from NAMD.data.PBC object thet is assumed to represent a box
+
+        Parameter
+        -----------------
+        charmm : NAMDdata
+            NAMDdata object
+        '''
+        self.setMaxsMins([charmm.pbc.cellOrigin[0],
+                          charmm.pbc.cellBasisVector1[0]+charmm.pbc.cellOrigin[0],
+                          charmm.pbc.cellOrigin[1],
+                          charmm.pbc.cellBasisVector2[1]+charmm.pbc.cellOrigin[1],
+                          charmm.pbc.cellOrigin[2],
+                          charmm.pbc.cellBasisVector3[2]+charmm.pbc.cellOrigin[2]
+                          ])
+
+    def loadFromDump(self, filename):
+        ''' Extracts info from LAMMPS dump file that is assumed to represent a box
+
+        Parameter
+        -----------------
+        filename : LAMMPS dump file
+        '''
+        dump = open(filename, "r")
+        for linea in dump:
+            if linea[:26] == "ITEM: BOX BOUNDS pp pp pp":
+                mismaxsstr = linea.readline().split(' ').append(
+                        linea.readline().split(' ')).append(
+                        linea.readline().split(' '))
+                self.setMaxsMins([float(x) for x in mismaxsstr])
+                break
+        dump.close()
+
+    def setMaxsMins(self, maxsMins):
+        self.maxsMins = maxsMins
+        
+    def volume(self):
+            '''
+            volume
+            '''
+            return (self.maxsMins[1]-self.maxsMins[0]) * \
+                (self.maxsMins[3]-self.maxsMins[2]) * \
+                (self.maxsMins[5]-self.maxsMins[4])
+
+
 
 if __name__ == "__main__":  # tests
     from NAMDdata import NAMDdata
