@@ -6,7 +6,7 @@
 
 
   Part of granules Version 0.1.0, October, 2019
-    Copyright 2019: José O.  Sotero Esteva, Lyxaira M. Glass Rivera, Lemuel I. Rivera Cantú
+    Copyright 2019: José O.  Sotero Esteva, Lyxaira M. Glass Rivera
     Computational Science Group, Department of Mathematics, 
     University of Puerto Rico at Humacao 
     <jose.sotero@upr.edu>.
@@ -141,7 +141,8 @@ class AtomPropertyData():
         coordMass = coordMass[['x','y','z']]
 
         return coordMass.mean()
-        
+    
+   
   
 class MolecularTopologyData():
     def __init__(self):
@@ -682,7 +683,23 @@ class AtomsDF(AtomProperty):
             self[coord] = self[coord] + b[coord]
         return self
 
-
+    def updateCoordinates(self,archivo):
+        '''Actualiza las coordenadas x,y,z del dataframe'''
+        fill = open(archivo,"r")
+        coor = []
+        
+        for i in reversed(fill.readlines()):#crea una lista del archivo en reversa
+            if 'id' in i: break
+            coor.append(i.rstrip("\n").split(" "))
+            
+        data = pd.DataFrame(coor,columns = ['aID', 'aType', 'x', 'y', 'z'])#crea un dataframe
+        data = data.astype({'aID':int, 'aType':int, 'x':float, 'y':float, 'z':float})#type de dato de cada columna
+        data = data.sort_values('aID').reset_index(drop=True)
+        fill.close()
+  
+        #reemplaza los valores del dataframe viejo a los valores del dataframe nuevo
+        for column in ['x', 'y', 'z']: self[column] = data[column].values
+     
 class MassesDF(AtomProperty):
     def __init__(self,data=None, dtype=None, copy=False):
         if data  is None:
@@ -1513,7 +1530,7 @@ class LammpsData():
         self.topologia.impropers = self.topologia.impropers.append(other.topologia.impropers)
 
         
-    def copy(self):
+    def copy(self):#modifica
         ld = LammpsData()
         # OH YEAH
         ld.forceField.angleCoeffs = self.forceField.angleCoeffs.copy()
@@ -1532,7 +1549,42 @@ class LammpsData():
         ld.topologia.impropers = self.topologia.impropers.copy()
         
         return ld
+    
+    def selectAtom(self,atomNumber):
+        '''No completado'''
+        
+        # AtompropertyData 
+        #atoms
+        self.atomproperty.atoms.drop(self.atomproperty.atoms[self.atomproperty.atoms.aType == atomNumber].index, inplace=True)#elimina el atomo indicado
+        copiaID = self.atomproperty.atoms["aID"]#copia aID modificada
+        self.atomproperty.atoms.reset_index(inplace=True)#reset el index, crea una copia del index
+        self.atomproperty.atoms.drop(['index','aID'],axis = 1, inplace=True)#elimina la copia y la columna afectada
+        self.atomproperty.atoms.insert(0, "aID", [*range(1,len(self.atomproperty.atoms)+1)], True)#inserta columna nueva en la afectada("aID")
+        #velocity
+        self.atomproperty.velocities.drop( self.atomproperty.velocities.tail(166-len(self.atomproperty.atoms)).index,inplace = True) #elimina velocidades dependiendo a los atomos eliminados
+        #masses
+         #chequea
+         
+         #Topologia
+        copiaID.rename(columns={"aID":"bID"})
+        self.topologia.bonds.join(copiaID,on=["bID"],how="right")#rsuffix = ""
+        return copiaID
+        #return copiaID.head()
+        #ForceFieldData 
+        #angles
+        #self.forceField.angleCoeffs
+        
+      
+       
 
+        
+        '''
+        #forceFieldSectio composi
+        self.forceField = ForceFieldData()
+        # molecular topology sections
+        self.topologia = MolecularTopologyData()
+        '''
+      
 
 if __name__ == "__main__":  # tests
     from NAMDdata import NAMDdata

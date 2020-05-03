@@ -26,3 +26,4 @@ l.loadNAMDdata(ch)
 l.writeConf("tubos.data")
 
 #print(l.charmmForce())
+
