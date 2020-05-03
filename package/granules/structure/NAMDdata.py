@@ -51,6 +51,8 @@ class PDB(pd.DataFrame):
                 name of file
         '''
 
+        print("PDB.readFile(",filename,")")
+        
         #Abrir el archivo para leer datos
         arch = open(filename, 'r')
         data = []
@@ -96,6 +98,7 @@ class PDB(pd.DataFrame):
                 })
         )
 
+        print("PDB.readFile(",filename,") ... END")
 
 
 
@@ -120,12 +123,16 @@ class PSF:
             filename : str
                 psf file name
         '''
+        print("PSF.readFile(",filename,")")
+        
         self.atoms.readSection(filename)
         self.bonds.readSection(filename)
         self.angles.readSection(filename)
         self.dihedrals.readSection(filename)
         self.impropers.readSection(filename)
         self.cross_terms.readSection(filename)
+        
+        print("PSF.readFile(",filename,") ... END")
 
     @staticmethod
     def readSection(filename, section, tupleLength, itemsPerLine):
@@ -344,11 +351,13 @@ class PRM:
                 prm file name
         '''
 
+        print("PRM.readFile(",filename,")")
         self.bonds.readSection(filename)
         self.angles.readSection(filename)
         self.dihedrals.readSection(filename)
         self.impropers.readSection(filename)
         self.nonbonded.readSection(filename)
+        print("PRM.readFile(",filename,") ... END")
 
    
     @staticmethod
@@ -609,11 +618,15 @@ class NAMDdata:
         '''
         import tempfile
 
+        print("NAMDdata.loadWolffiaMixture() writing files...")
         tdir = tempfile.TemporaryDirectory(suffix="granules_")
         filesSufix = tdir.name + "/namdTempFile"
         mix.writeFiles(filesSufix)
+        mix.writeFiles("namdTempFile")
+        print("NAMDdata.loadWolffiaMixture() reading files...")
         self.readFiles(filesSufix + ".pdb", filesSufix + ".psf", filesSufix + ".prm")
         tdir.cleanup()
+        print("NAMDdata.loadWolffiaMixture() END")
 
         return self
 
