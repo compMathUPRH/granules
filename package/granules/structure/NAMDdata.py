@@ -140,6 +140,9 @@ class PBC():
                 self.cellBasisVector3 = np.array(record[7:10],  dtype='float')
                 self.cellOrigin       = np.array(record[10:13], dtype='float')
                 #print("PBC.readFile(",filename,") ... record = ", record)
+                #print("PBC.readFile(",filename,") ... self.cellBasisVector1 = ", self.cellBasisVector1)
+                #print("PBC.readFile(",filename,") ... self.cellBasisVector2 = ", self.cellBasisVector2)
+                #print("PBC.readFile(",filename,") ... self.cellBasisVector3 = ", self.cellBasisVector3)
                 #print("PBC.readFile(",filename,") ... self.cellOrigin = ", self.cellOrigin)
         #print("PBC.readFile(",filename,") ... END")
        
