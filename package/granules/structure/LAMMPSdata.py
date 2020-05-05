@@ -1403,14 +1403,16 @@ class LammpsData():
                                 len(self.atomproperty.atoms), len(self.topologia.bonds), len(self.topologia.angles), len(self.topologia.dihedrals), len(self.topologia.impropers), len(self.atomproperty.masses), \
                                 len(self.forceField.bondCoeffs), len(self.forceField.angleCoeffs), len(self.forceField.dihedralCoeffs), len(self.forceField.improperCoeffs)) 
 
-        # Improve and ask from where we get this data
-        #box_section =  ' ' + str(self.atomproperty.atoms['x'].min()-2) + ' ' + str(self.atomproperty.atoms['x'].max()+2) + ' xlo xhi\n' + \
-        #               ' ' + str(self.atomproperty.atoms['y'].min()-2) + ' ' + str(self.atomproperty.atoms['y'].max()+2) + ' ylo yhi\n' + \
-        #               ' ' + str(self.atomproperty.atoms['z'].min()-2) + ' ' + str(self.atomproperty.atoms['z'].max()+2) + ' zlo zhi\n'   
-        maxminstr = [str(x) for x in self.region.maxsMins]
-        box_section =  ' '.join(maxminstr[:2])  + ' xlo xhi\n' + \
-                       ' '.join(maxminstr[2:4]) + ' ylo yhi\n' + \
-                       ' '.join(maxminstr[4:])  + ' zlo zhi\n'
+        try:
+            maxminstr = [str(x) for x in self.region.maxsMins]
+            box_section =  ' '.join(maxminstr[:2])  + ' xlo xhi\n' + \
+                           ' '.join(maxminstr[2:4]) + ' ylo yhi\n' + \
+                           ' '.join(maxminstr[4:])  + ' zlo zhi\n'
+        except:
+            # Improve and ask from where we get this data
+            box_section =  ' ' + str(self.atomproperty.atoms['x'].min()-2) + ' ' + str(self.atomproperty.atoms['x'].max()+2) + ' xlo xhi\n' + \
+                           ' ' + str(self.atomproperty.atoms['y'].min()-2) + ' ' + str(self.atomproperty.atoms['y'].max()+2) + ' ylo yhi\n' + \
+                           ' ' + str(self.atomproperty.atoms['z'].min()-2) + ' ' + str(self.atomproperty.atoms['z'].max()+2) + ' zlo zhi\n'   
                        
         # Header
         cfile.write("LAMMPS Description\n\n")
@@ -1657,7 +1659,7 @@ class Box(Region):
         '''
         super(Box, self).setId(cid)
     
-        self.setMaxsMins(maxsMins)
+        self.setMinsMaxs(maxsMins)
     
     def getMaxsMins(self): return self.maxsMins
     
@@ -1690,13 +1692,17 @@ class Box(Region):
         charmm : NAMDdata
             NAMDdata object
         '''
-        self.setMaxsMins([charmm.pbc.cellOrigin[0],
-                          charmm.pbc.cellBasisVector1[0]+charmm.pbc.cellOrigin[0],
-                          charmm.pbc.cellOrigin[1],
-                          charmm.pbc.cellBasisVector2[1]+charmm.pbc.cellOrigin[1],
-                          charmm.pbc.cellOrigin[2],
-                          charmm.pbc.cellBasisVector3[2]+charmm.pbc.cellOrigin[2]
-                          ])
+        
+        try:
+            self.setMinsMaxs([charmm.pbc.cellOrigin[0],
+                              charmm.pbc.cellBasisVector1[0],
+                              charmm.pbc.cellOrigin[1],
+                              charmm.pbc.cellBasisVector2[1],
+                              charmm.pbc.cellOrigin[2],
+                              charmm.pbc.cellBasisVector3[2]
+                              ])
+        except: 
+            self.setMinsMaxs(None)
 
     def loadFromDump(self, filename):
         ''' Extracts info from LAMMPS dump file that is assumed to represent a box
@@ -1711,11 +1717,11 @@ class Box(Region):
                 mismaxsstr = linea.readline().split(' ').append(
                         linea.readline().split(' ')).append(
                         linea.readline().split(' '))
-                self.setMaxsMins([float(x) for x in mismaxsstr])
+                self.setMinsMaxs([float(x) for x in mismaxsstr])
                 break
         dump.close()
 
-    def setMaxsMins(self, maxsMins):
+    def setMinsMaxs(self, maxsMins):
         self.maxsMins = maxsMins
         
     def volume(self):
