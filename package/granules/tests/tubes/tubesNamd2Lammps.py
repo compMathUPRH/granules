@@ -17,6 +17,7 @@ Modified January 2020 by
 
 from granules.structure.NAMDdata import PDB, PSF, PRM, NAMDdata
 from granules.structure.LAMMPSdata import LammpsData
+import os
 
 l = LammpsData()
 ch = NAMDdata()
@@ -24,6 +25,10 @@ ch.readFiles("tubos.pdb", "tubos.psf", "tubos.prm")
 
 l.loadNAMDdata(ch)
 l.writeConf("tubos.data")
-
+#subprocess.call(["lammps", "-in", "tubos.data"])
+print(l.atomproperty.atoms[l.atomproperty.atoms['aID'] == 8197])
+os.system("lammps -in in.tubos")
+l.atomproperty.atoms.updateCoordinates("dump.tube")
+print(l.atomproperty.atoms[l.atomproperty.atoms['aID'] == 8197])
 #print(l.charmmForce())
 

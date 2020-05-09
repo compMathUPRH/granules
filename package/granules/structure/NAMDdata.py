@@ -51,7 +51,7 @@ class PDB(pd.DataFrame):
                 name of file
         '''
 
-        print("PDB.readFile(",filename,")")
+        #print("PDB.readFile(",filename,")")
         
         #Abrir el archivo para leer datos
         arch = open(filename, 'r')
@@ -98,10 +98,54 @@ class PDB(pd.DataFrame):
                 })
         )
 
-        print("PDB.readFile(",filename,") ... END")
+        #print("PDB.readFile(",filename,") ... END")
 
 
+class PBC():
+    ''' Stores periodic boundary conditions
+    '''
 
+    def __init__(self,cellv1=None, cellv2=None, cellv3=None, cello=None, 
+                 wrapWater=False, wrapNearest=False):
+        # validate parameters
+        A = cellv1==None or cellv1==None or cellv1==None
+        B = cellv1==None and cellv1==None and cellv1==None
+        assert(not A or (A and B) or (A and not B)) # A implies B
+        
+        self.cellBasisVector1 = cellv1
+        self.cellBasisVector2 = cellv2
+        self.cellBasisVector3 = cellv3
+        self.cellOrigin       = cello
+        self.wrapWater        = wrapWater
+        self.wrapNearest      = wrapNearest
+
+    def readFile(self, filename):
+        ''' reads cell basis vectors and cell origin from XSC file. Ignores the rest. 
+
+            Parameter
+            ----------
+            filename : str
+                name of file
+        '''
+        import numpy as np
+        
+        #print("PBC.readFile(",filename,")")
+        xsc_file = open(filename, "r")
+        for line in xsc_file:
+            #print("PBC.readFile(",filename,") ... line = ", line)
+            if line.strip()[0] != '#':
+                record = line.strip().split(' ')
+                self.cellBasisVector1 = np.array(record[1:4],   dtype='float')
+                self.cellBasisVector2 = np.array(record[4:7],   dtype='float')
+                self.cellBasisVector3 = np.array(record[7:10],  dtype='float')
+                self.cellOrigin       = np.array(record[10:13], dtype='float')
+                #print("PBC.readFile(",filename,") ... record = ", record)
+                #print("PBC.readFile(",filename,") ... self.cellBasisVector1 = ", self.cellBasisVector1)
+                #print("PBC.readFile(",filename,") ... self.cellBasisVector2 = ", self.cellBasisVector2)
+                #print("PBC.readFile(",filename,") ... self.cellBasisVector3 = ", self.cellBasisVector3)
+                #print("PBC.readFile(",filename,") ... self.cellOrigin = ", self.cellOrigin)
+        #print("PBC.readFile(",filename,") ... END")
+       
 class PSF:
     ''' Pandas DataFrames that store data in PSF format.
         See specification in http://www.ks.uiuc.edu/Training/Tutorials/namd/namd-tutorial-unix-html/node23.html
@@ -123,7 +167,7 @@ class PSF:
             filename : str
                 psf file name
         '''
-        print("PSF.readFile(",filename,")")
+        #print("PSF.readFile(",filename,")")
         
         self.atoms.readSection(filename)
         self.bonds.readSection(filename)
@@ -132,7 +176,7 @@ class PSF:
         self.impropers.readSection(filename)
         self.cross_terms.readSection(filename)
         
-        print("PSF.readFile(",filename,") ... END")
+        #print("PSF.readFile(",filename,") ... END")
 
     @staticmethod
     def readSection(filename, section, tupleLength, itemsPerLine):
@@ -351,13 +395,13 @@ class PRM:
                 prm file name
         '''
 
-        print("PRM.readFile(",filename,")")
+        #print("PRM.readFile(",filename,")")
         self.bonds.readSection(filename)
         self.angles.readSection(filename)
         self.dihedrals.readSection(filename)
         self.impropers.readSection(filename)
         self.nonbonded.readSection(filename)
-        print("PRM.readFile(",filename,") ... END")
+        #print("PRM.readFile(",filename,") ... END")
 
    
     @staticmethod
@@ -578,7 +622,9 @@ class PRM:
 
 
 
-
+class NAMDdataEsception(Exception):
+    pass
+        
 
 class NAMDdata:
     ''' Groups PDB, PRM and PSF objects.'''
@@ -587,6 +633,7 @@ class NAMDdata:
         self.pdb = PDB()
         self.psf = PSF()
         self.prm = PRM()
+        self.pbc = PBC()
         self.network = None
         
         if files:
@@ -595,22 +642,24 @@ class NAMDdata:
     def readFiles(self, *files):
        
         if len(files) == 0:
-            print("no files given to readFiles function")
-        elif len(files) > 3:
-            print("too many files given to readFiles function")
+            raise NAMDdataEsception("no files given to readFiles function")
+        elif len(files) > 4:
+            raise NAMDdataEsception("too many files given to readFiles function")
         else:
             for f in files:
-                if ".pdb" in f:
+                if   ".pdb" in f:
                     self.pdb.readFile(f)
                 elif ".psf" in f:
                     self.psf.readFile(f)
                 elif ".prm" in f:
                     self.prm.readFile(f)
+                elif ".xsc" in f:
+                    self.pbc.readFile(f)
                 else: 
                     print("file:" + f + "does not have pdb, psf or prm as an extension")
 
 
-    def loadWolffiaMixture(self, mix):
+    def loadWolffia(self, wolffia):
         '''
         Converts a Wolffia mixture to a NAMDData self object.
 
@@ -618,15 +667,16 @@ class NAMDdata:
         '''
         import tempfile
 
-        print("NAMDdata.loadWolffiaMixture() writing files...")
+        #print("NAMDdata.loadWolffia() writing files...")
         tdir = tempfile.TemporaryDirectory(suffix="granules_")
         filesSufix = tdir.name + "/namdTempFile"
-        mix.writeFiles(filesSufix)
-        mix.writeFiles("namdTempFile")
-        print("NAMDdata.loadWolffiaMixture() reading files...")
-        self.readFiles(filesSufix + ".pdb", filesSufix + ".psf", filesSufix + ".prm")
+        wolffia.writeFiles(filesSufix)
+        wolffia.writeFiles("namdTempFile")
+        #print("NAMDdata.loadWolffia() reading files...")
+        self.readFiles(filesSufix + ".pdb", filesSufix + ".psf", filesSufix + ".prm", filesSufix + ".xsc")
+        #print("NAMDdata.loadWolffia() self.pbc.cellOrigin = ", self.pbc.cellOrigin)
         tdir.cleanup()
-        print("NAMDdata.loadWolffiaMixture() END")
+        #print("NAMDdata.loadWolffia() END")
 
         return self
 

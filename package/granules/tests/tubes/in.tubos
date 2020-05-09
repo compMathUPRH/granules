@@ -37,5 +37,5 @@ dump		2 tube image 25 image.*.jpg type type &
 		axes yes 0.8 0.02 view 60 -30 bond atom 0.5
 dump_modify	2 pad 3
 
-run		3000
+run		300
 
