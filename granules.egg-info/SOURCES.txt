@@ -1,0 +1,7 @@
+README.md
+setup.py
+granules.egg-info/PKG-INFO
+granules.egg-info/SOURCES.txt
+granules.egg-info/dependency_links.txt
+granules.egg-info/requires.txt
+granules.egg-info/top_level.txt
