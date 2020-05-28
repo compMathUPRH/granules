@@ -5,13 +5,14 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="granules",
-    version="1.0.0",
+    version="0.0.1",
     author="Lemuel I. Rivera Cantú",
     author_email="lemuel.rivera6@upr.edu",
     description="testing package",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/compMathUPRH/granules.git",
+    package_dir = {'granules': 'package'},
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
