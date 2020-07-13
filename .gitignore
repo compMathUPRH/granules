@@ -1,4 +1,4 @@
 **/__pycache
 *.pyc
-
+/granules.egg-info
 
