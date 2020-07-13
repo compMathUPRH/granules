@@ -18,15 +18,30 @@ ch.readFiles("2rvd_autopsf.pdb", "2rvd_autopsf.psf", "par_all36_prot.prm")
 l.loadNAMDdata(ch)
 l.writeConf("2rvd.data")
 
+'''
 #Pruebas para selectAtoms()
-'''#seguimiento
+
 print("Tabla antes de buscar el atomo: #######")
-print(l.topologia.dihedrals.head())
-print(len(l.topologia.dihedrals))
+#print(l.atomproperty.atoms)
+print("#####################bonds")
+#print(l.topologia.bonds)
+#print(len(l.topologia.bonds))
+print("#####################angles")
+print(l.topologia.angles)
+print(len(l.topologia.angles))
+print("#####################impropers")
+#print(l.topologia.impropers)
+#print(len(l.topologia.impropers))
+print("#####################dihedrals")
+#print(l.topologia.dihedrals)
+#print(l.forceField.angleCoeffs)
+#print(len(l.forceField.angleCoeffs))
 l.selectAtom(2)
 print("Despues########")
-print(l.topologia.dihedrals.head())
-print(len(l.topologia.dihedrals))
+print(l.topologia.angles)
+print(len(l.topologia.angles))
+#print(l.topologia.dihedrals.head())
+#print(len(l.topologia.dihedrals))
 '''
 
 

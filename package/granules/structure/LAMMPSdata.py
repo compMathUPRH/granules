@@ -1588,25 +1588,30 @@ class LammpsData():
         #masses
          #chequea
          
-        #Topologia
+        #TopologiaData
         #bonds
-        self.topologia.bonds = self.topologia.bonds.ix[self.topologia.bonds['bType'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
+        #Cambio para que busque en los Atomos enves de Type
+        self.topologia.bonds = self.topologia.bonds.ix[self.topologia.bonds['Atom1'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
+        self.topologia.bonds = self.topologia.bonds.ix[self.topologia.bonds['Atom2'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
         self.topologia.bonds  = self.topologia.bonds.reset_index(drop=True)#resetea el indice y elimina la copia
         self.topologia.bonds['bID'] = [i for i in range(1,len(self.topologia.bonds)+1 )]#resetea el indice en la columna 'bType'
         #angles
-        self.topologia.angles = self.topologia.angles.ix[self.topologia.angles['anType'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
+        self.topologia.angles = self.topologia.angles.ix[self.topologia.angles['Atom3'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
+        self.topologia.bonds = self.topologia.bonds.ix[self.topologia.bonds['Atom1'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
+        self.topologia.bonds = self.topologia.bonds.ix[self.topologia.bonds['Atom2'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
         self.topologia.angles  = self.topologia.angles.reset_index(drop=True)#resetea el indice y elimina la copia
         self.topologia.angles['anID'] = [i for i in range(1,len(self.topologia.angles)+1 )]#resetea el indice en la columna 'anType'
-        #improper
+        #improper######modifica desde aqui
         self.topologia.impropers = self.topologia.impropers.ix[self.topologia.impropers['iType'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
         self.topologia.impropers  = self.topologia.impropers.reset_index(drop=True)#resetea el indice y elimina la copia
         self.topologia.impropers['iID'] = [i for i in range(1,len(self.topologia.impropers)+1 )]#resetea el indice en la columna 'iType'
-        #diihedral
+        #dihedral
         self.topologia.dihedrals = self.topologia.dihedrals.ix[self.topologia.dihedrals['dType'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
         self.topologia.dihedrals  = self.topologia.dihedrals.reset_index(drop=True)#resetea el indice y elimina la copia
         self.topologia.dihedrals['dID'] = [i for i in range(1,len(self.topologia.dihedrals)+1 )]#resetea el indice en la columna 'dType'
         
         #ForceFieldData 
+        #self.forceField.angleCoeffs
             #Falta
         
         
