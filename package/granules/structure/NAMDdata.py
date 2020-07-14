@@ -31,7 +31,8 @@ import numpy as np
 
 
 class PDB(pd.DataFrame):
-    ''' Pandas DataFrame that stores data in PDB format (only the ATOMS section).
+    ''' Pandas DataFrame that stores data defined by the PDB format 
+        (only the ATOMS section).
     '''
 
     def __init__(self,data=None, dtype=None, copy=False):
@@ -43,7 +44,9 @@ class PDB(pd.DataFrame):
         )
 
     def readFile(self, filename):
-        ''' reads PDB file and appends to self
+        ''' reads PDB file and appends to self.
+            Follows specifications of the atoms section in 
+            http://www.wwpdb.org/documentation/file-format-content/format33/sect9.html#ATOM
 
             Parameter
             ----------
@@ -57,33 +60,35 @@ class PDB(pd.DataFrame):
         arch = open(filename, 'r')
         data = []
         
-        ranges = [6,6,4,1,3,2,4,4,8,8,8,6,6,11,2]
+        ranges = [6,5,1,4,1,3,1,1,4,1,3,8,8,8,6,6,10,2,2]
+        voidPositions = [0,6,11,20,27,66]
         
+        atomID = 1
         for linea in arch:
             
-            #Solo queremos la informacion
+            #Solo queremos la informacion de átomos
             if linea[:4] == 'ATOM' or linea[:4] == 'HETA': 
-                
-                #Recoger la informacion mediante su posicion
-                info = []
+                info = ['ATOM',atomID]
                 start = 0
                 stop = 0
                         
-
                 for i in ranges:
                     stop += i
-                    #print('\nEn posicion',start,':',stop,'se encuentra ->>')
-                    l = linea[start:stop].strip()
-                    if l == '' or l == '<0>': info.append(np.nan)
-                    else: info.append(l)
+                    if start not in voidPositions:
+                        l = linea[start:stop].strip()
+                        #print('\nEn posicion',start+1,':',stop,'se encuentra ->>',l)
+                        if l == '' or l == '<0>': info.append(np.nan)
+                        else: info.append(l)
                     start += i
 
                 #Cada vez anadir nueva informacion a los datos
                 #print(info)
                 data.append(info)
+                atomID += 1
                        
         arch.close() 
         newTable = PDB(data=data)  
+        #print(newTable)
 
         # set column types and append to existing table
         super().__init__(data=self.append(newTable, ignore_index=True).astype(
@@ -102,7 +107,13 @@ class PDB(pd.DataFrame):
 
 
 class PBC():
-    ''' Stores periodic boundary conditions
+    ''' Stores periodic boundary conditions as 3 cell vectors and the coordinates
+        of the origin.
+        
+        Parameters;
+        cellv1, cellv, cellv3 and cello: np.arrays or lists with 3 float values
+        : 
+        
     '''
 
     def __init__(self,cellv1=None, cellv2=None, cellv3=None, cello=None, 
@@ -147,8 +158,9 @@ class PBC():
         #print("PBC.readFile(",filename,") ... END")
        
 class PSF:
-    ''' Pandas DataFrames that store data in PSF format.
-        See specification in http://www.ks.uiuc.edu/Training/Tutorials/namd/namd-tutorial-unix-html/node23.html
+    ''' Pandas DataFrames that store data defined in the PSF file format specificaton.
+        See specification in 
+        http://www.ks.uiuc.edu/Training/Tutorials/namd/namd-tutorial-unix-html/node23.html
     '''
 
     def __init__(self):
@@ -180,7 +192,8 @@ class PSF:
 
     @staticmethod
     def readSection(filename, section, tupleLength, itemsPerLine):
-        ''' reads section 'section' PSF file
+        ''' reads the section of the PSF file specified in the parameter
+             'section'.
 
             Parameter
             ----------
@@ -199,15 +212,11 @@ class PSF:
         
         #Abrir el archivo para leer datos
         arch = open(filename, 'r')
-        data = []
-        flag = True
-        
+        data = []        
 
         # find desired section
         for linea in arch:
             if '!N'+section in linea: break
-        #print("\n\n\nlinea encontrada: ", linea)
-
 
         #Obtener la cantidad de elementos, cae a 0 si no encontró la sección 
         try:
@@ -234,7 +243,7 @@ class PSF:
     
 
     class ATOM(pd.DataFrame):
-        ''' ATOM section of the PSF '''
+        ''' ATOM section of the PSF file format specification.'''
 
         def __init__(self,data=None, dtype=None, copy=False):
             super(PSF.ATOM, self).__init__(data=data, copy=copy, columns=[
@@ -242,8 +251,16 @@ class PSF:
                         'Type', 'Charge', 'Mass', 'Unused'])
 
         def readSection(self, filename):
+            ''' reads the section of the ATOM section of PSF file specified in the parameter
+                 'filename'.
+    
+                Parameter
+                ----------
+                filename : str
+                    name of file
+            '''
             newTable = PSF.ATOM(data=PSF.readSection(filename, "ATOM", 9, 1))  
-            #print(newTable)
+
             # set column types and append to existing table
             super().__init__(data=self.append(newTable, ignore_index=True).astype({
                      'ID'     :int,
@@ -253,13 +270,21 @@ class PSF:
 
 
     class BOND(pd.DataFrame):
-        ''' BOND section of the PSF'''
+        ''' BOND section of the PSF file format specification.'''
 
         def __init__(self,data=None, dtype=None, copy=False):
             super(PSF.BOND, self).__init__(data=data, copy=copy, columns=[
                     'atom1','atom2'])
 
         def readSection(self, filename):
+            ''' reads the section of the BOND section of PSF file specified in the parameter
+                 'filename'.
+    
+                Parameter
+                ----------
+                filename : str
+                    name of file
+            '''
             data=PSF.readSection(filename, "BOND", 2, 4)
             newTable = pd.DataFrame(data).dropna()
             pair1 = newTable[[0,1]]
@@ -272,13 +297,21 @@ class PSF:
                     }))
 
     class THETA(pd.DataFrame):
-        ''' THETA section of the PSF'''
+        ''' THETA section of the PSF file format specification.'''
 
         def __init__(self,data=None, dtype=None, copy=False):
             super(PSF.THETA, self).__init__(data=data, copy=copy, columns=[
                     'atom1','atom2','atom3'])
 
         def readSection(self, filename):
+            ''' reads the section of the THETA section of PSF file specified in the parameter
+                 'filename'.
+    
+                Parameter
+                ----------
+                filename : str
+                    name of file
+            '''
             data=PSF.readSection(filename, "THETA", 3,3)
             newTable = pd.DataFrame(data).dropna()
             pair1 = newTable[[0,1,2]]
@@ -291,13 +324,21 @@ class PSF:
                     }))
 
     class PHI(pd.DataFrame):
-        ''' PHI section of the PSF'''
+        ''' PHI section of the PSF file format specification.'''
 
         def __init__(self,data=None, dtype=None, copy=False):
             super(PSF.PHI, self).__init__(data=data, copy=copy, columns=[
                     'atom1','atom2','atom3','atom4'])
 
         def readSection(self, filename):
+            ''' reads the section of the PHI section of PSF file specified in the parameter
+                 'filename'.
+    
+                Parameter
+                ----------
+                filename : str
+                    name of file
+            '''
             data=PSF.readSection(filename, "PHI", 4,2)
             if len(data) == 0:
                 super().__init__(data=self.astype({
@@ -320,13 +361,21 @@ class PSF:
 
 
     class IMPHI(pd.DataFrame):
-        ''' IMPHI section of the PSF'''
+        ''' IMPHI section of the PSF file format specification.'''
 
         def __init__(self,data=None, dtype=None, copy=False):
             super(PSF.IMPHI, self).__init__(data=data, copy=copy, columns=[
                     'atom1','atom2','atom3','atom4'])
 
         def readSection(self, filename):
+            ''' reads the section of the IMPHI section of PSF file specified in the parameter
+                 'filename'.
+    
+                Parameter
+                ----------
+                filename : str
+                    name of file
+            '''
             data=PSF.readSection(filename, "IMPHI", 4,2)
             if len(data) == 0:
                 super().__init__(data=self.astype({
@@ -349,13 +398,21 @@ class PSF:
 
 
     class CRTERM(pd.DataFrame):
-        ''' CRTERM section of the PSF'''
+        ''' CRTERM section of the PSF file format specification.'''
 
         def __init__(self,data=None, dtype=None, copy=False):
             super(PSF.CRTERM, self).__init__(data=data, copy=copy, columns=[
                     'atom1','atom2','atom3','atom4'])
 
         def readSection(self, filename):
+            ''' reads the section of the CRTERM section of PSF file specified in the parameter
+                 'filename'.
+    
+                Parameter
+                ----------
+                filename : str
+                    name of file
+            '''
             data=PSF.readSection(filename, "CRTERM", 4,2)
             if len(data) == 0:
                 super().__init__(data=self.astype({
@@ -372,7 +429,7 @@ class PSF:
 
 
 class PRM:
-    ''' NAMDdata force field from a PRM file.
+    ''' NAMDdata force field from a PRM file (CHARMM force field parameters).
         See format in https://www.ks.uiuc.edu/Training/Tutorials/namd/namd-tutorial-unix-html/node25.html
     '''
     #SECTIONS = ["BONDS", "ANGLES", "DIHEDRALS", "IMPROPER", "CMAP", "NONBONDED", "END", "HBOND"]
@@ -406,7 +463,8 @@ class PRM:
    
     @staticmethod
     def readSection(filename, section):
-        ''' reads section 'section' PRM file
+        ''' reads the section of the PRM file specified in the parameter
+             'section'.
 
             Parameter
             ----------
@@ -422,16 +480,9 @@ class PRM:
         
         #Abrir el archivo para leer datos
         arch = open(filename, 'r')
-        data = []
-        flag = True
-       
+        data = []       
 
         # find desired section
-        '''
-        linea = arch.readline().split("!")[0].strip()
-        while not section == linea[:len(section)]: 
-           linea = arch.readline().split("!")[0].strip()
-        '''
         while True:  # search for multiple sections, exits when it hits the end of file
             found = False
             for linea in arch:
@@ -459,11 +510,14 @@ class PRM:
                     data.append(info)  
 
         arch.close()
-        #print(data)
         return data
 
 
     class NONBONDED(pd.DataFrame):
+        ''' Stores information from the NONBONDED section of the 
+            NAMDdata force field from a PRM file (CHARMM force field parameters).
+            See format in https://www.ks.uiuc.edu/Training/Tutorials/namd/namd-tutorial-unix-html/node25.html
+        '''
         def __init__(self,data=None, dtype=None, copy=False):
             super(PRM.NONBONDED, self).__init__(data=data, copy=copy, columns=[
                 'Type','epsilon','Rmin2','epsilon1_4','Rmin2_1_4'])
@@ -476,10 +530,16 @@ class PRM:
 
 
         def readSection(self, filename):
+            ''' reads the NONBONDED section of the PRM file specified in the parameter
+                 'section'.
+    
+                Parameter
+                ----------
+                filename : str
+                    name of file
+            '''
 
             data = list()
-
-            #print("Entre a funcion")
 
             d = PRM.readSection(filename, "NONBONDED")
 
@@ -490,7 +550,6 @@ class PRM:
                 else:
                     data.append([list_[0], -float(list_[2]), list_[3], -float(list_[5]), list_[6]])
 
-            #print(data)
             newTable = PRM.NONBONDED(data=data)  
 
             # modificar newTable para que todas las listas tengan 4 números
@@ -526,6 +585,14 @@ class PRM:
 
 
         def readSection(self, filename):
+            ''' reads the BONDS section of the PRM file specified in the parameter
+                 'section'.
+    
+                Parameter
+                ----------
+                filename : str
+                    name of file
+            '''
             newTable = PRM.BONDS(data=PRM.readSection(filename, "BONDS"))  
             super().__init__(data=self.append(newTable, ignore_index=True).astype({
                      'Kb' :float,
@@ -552,6 +619,14 @@ class PRM:
             return prmFF
 
         def readSection(self, filename):
+            ''' reads the ANGLES section of the PRM file specified in the parameter
+                 'section'.
+    
+                Parameter
+                ----------
+                filename : str
+                    name of file
+            '''
             data=PRM.readSection(filename, "ANGLES")
 
             if data != []:
@@ -588,6 +663,14 @@ class PRM:
             return prmFF
 
         def readSection(self, filename):
+            ''' reads the DIHEDRALS section of the PRM file specified in the parameter
+                 'section'.
+    
+                Parameter
+                ----------
+                filename : str
+                    name of file
+            '''
             newTable = PRM.DIHEDRALS(data=PRM.readSection(filename, "DIHEDRALS"))  
             super().__init__(data=self.append(newTable, ignore_index=True).astype({
                      'Kchi'  :float,
@@ -614,6 +697,14 @@ class PRM:
             return prmFF
 
         def readSection(self, filename):
+            ''' reads the IMPROPER section of the PRM file specified in the parameter
+                 'section'.
+    
+                Parameter
+                ----------
+                filename : str
+                    name of file
+            '''
             newTable = PRM.IMPROPER(data=PRM.readSection(filename, "IMPROPER"))  
             super().__init__(data=self.append(newTable, ignore_index=True).astype({
                      'Kpsi' :float,
@@ -672,11 +763,10 @@ class NAMDdata:
         filesSufix = tdir.name + "/namdTempFile"
         wolffia.writeFiles(filesSufix)
         wolffia.writeFiles("namdTempFile")
-        #print("NAMDdata.loadWolffia() reading files...")
+
         self.readFiles(filesSufix + ".pdb", filesSufix + ".psf", filesSufix + ".prm", filesSufix + ".xsc")
-        #print("NAMDdata.loadWolffia() self.pbc.cellOrigin = ", self.pbc.cellOrigin)
+
         tdir.cleanup()
-        #print("NAMDdata.loadWolffia() END")
 
         return self
 
