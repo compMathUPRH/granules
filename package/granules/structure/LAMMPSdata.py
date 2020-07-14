@@ -657,7 +657,7 @@ class AtomsDF(AtomProperty):
         sel         = sel_pdb.join(sel_psf)
         #print(sel)        
         sel['aType'] = sel_psf['Type'].map(charmmTypeToInt)
-        #print(sel)
+        #print(sel_pdb[charmm.pdb['ID']==0])
         sel.reset_index(inplace=True)
         #print(sel)        
         sel         .rename(columns={"Charge":"Q",'ID':'aID'}, inplace=True)
@@ -668,7 +668,9 @@ class AtomsDF(AtomProperty):
         sel['Ny']     = np.zeros((len(sel), 1))
         sel['Nz']     = np.zeros((len(sel), 1))
         sel['ID']     = np.arange(1, len(sel)+1)
-        #print(sel[np.isfinite(sel['aType'])])
+        #print('setFromNAMD:\n', charmmTypeToInt,sel_psf['Type'],sel['aType'])
+        #print('setFromNAMD:\n', charmmTypeToInt,sel_psf.loc[1,'Type'],sel_psf.loc[1,'Type'] in charmmTypeToInt, sel.loc[1,'aType'])
+        #print('\nsetFromNAMD:\n', sel[np.isnan(sel['aType'])])
         # rearrange columns
         sel = sel[['aID', 'Mol_ID', 'aType', 'Q', 'x', 'y', 'z', 'Nx', 'Ny', 'Nz']]
         
@@ -1138,7 +1140,6 @@ class DihedralCoeffs(ForceField):
 
         # extract info from charmm
         psf_types   = charmm.psf.atoms[['ID', 'Type']].set_index('ID').to_dict()['Type']
-        #print(psf_types)
 
         # substitute atoms numbers with charmm atom types
 
@@ -1153,7 +1154,6 @@ class DihedralCoeffs(ForceField):
         #print(dihedrals)
 
         prmFF = charmm.prm.dihedrals.getCoeffs()
-        #print(prmFF)
 
         # add Kb and b0 to bonds
         #dihedrals['Kchi'] = dihedrals.atuple.map(prmFF.Kchi.to_dict())
@@ -1174,7 +1174,6 @@ class DihedralCoeffs(ForceField):
         del dihedrals['Type']
         
         super(DihedralCoeffs, self).__init__(dihedrals.astype({'Kchi':float, 'n':int, 'delta':int,'Weighting_Factor':float}))
-        #print("DihedralCoeffs\n",self.dtypes)
 
 
 class ImproperCoeffs(ForceField):
@@ -1227,39 +1226,7 @@ class ImproperCoeffs(ForceField):
         del impropers['Type']
         
         super(ImproperCoeffs, self).__init__(impropers)
-        #print(self)
  
-#===================================================================
-#CLASES TEMPORERAS
-'''
-class NonbDF(MolecularTopologySections):
-    def __init__(self,data=None, dtype=None, copy=False):
-        super(NonbDF, self).__init__(data=data, copy=copy, columns=['ID','Type1','Force','Charge','Energy'])
-
-class BondDF(MolecularTopologySections):
-    def __init__(self,data=None, dtype=None, copy=False):
-        super(BondDF, self).__init__(data=data, copy=copy, columns=['ID','Type1','Type2','Spring_Constant','Eq_Length'])
-
-class AnglDF(MolecularTopologySections):
-    def __init__(self,data=None, dtype=None, copy=False):
-        super(AnglDF, self).__init__(data=data, copy=copy, columns=['ID','Type1','Type2','Type3','Spring_Constant','Eq_Angle'])
-
-class ImprDF(MolecularTopologySections):
-    def __init__(self,data=None, dtype=None, copy=False):
-        super(ImprDF, self).__init__(data=data, copy=copy, columns=['ID','Atom','Types','Kpsi','Psi0'])
-
-class DiheDF(MolecularTopologySections):
-    def __init__(self,data=None, dtype=None, copy=False):
-        super(DiheDF, self).__init__(data=data, copy=copy, columns=['ID','Type1','Type2','Type3','Type4','Spring_Constant','Multiplicity','Eq_Angle'])
-
-class PDB_File(MolecularTopologySections):
-    def __init__(self,data=None, dtype=None, copy=False):
-        super(PDB_File, self).__init__(data=data, copy=copy, columns=['RecName','ID','Name','AltLoc','ResName','ChainID','ResSeq','iCode','x','y','z','Occupancy','TempFactor','Element','Charge'])
-
-class PSF_File(MolecularTopologySections):
-    def __init__(self,data=None, dtype=None, copy=False):
-        super(PSF_File, self).__init__(data=data, copy=copy, columns=['ID','RecName','ChainID', 'ResName', 'Name', 'Type', 'Charge', 'Mass', 'Unused'])
-'''
 
 #=================================================================== 
 
