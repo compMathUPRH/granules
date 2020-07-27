@@ -1679,11 +1679,11 @@ class Box(Region):
         
         try:
             self.setMinsMaxs([charmm.pbc.cellOrigin[0],
-                              charmm.pbc.cellBasisVector1[0],
+                              charmm.pbc.cellBasisVector1[0] + charmm.pbc.cellOrigin[0],
                               charmm.pbc.cellOrigin[1],
-                              charmm.pbc.cellBasisVector2[1],
+                              charmm.pbc.cellBasisVector2[1] + charmm.pbc.cellOrigin[1],
                               charmm.pbc.cellOrigin[2],
-                              charmm.pbc.cellBasisVector3[2]
+                              charmm.pbc.cellBasisVector3[2] + charmm.pbc.cellOrigin[2]
                               ])
         except: 
             self.setMinsMaxs(None)
