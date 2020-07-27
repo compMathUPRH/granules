@@ -983,7 +983,7 @@ class ImpropersDF(MolecularTopology):
 
 class PairCoeffs(ForceField):
     def __init__(self,data=None, dtype=None, copy=False):
-        super(PairCoeffs, self).__init__(data=data, columns=['aType', 'epsilon', 'sigma', 'epsilon1_4', 'sigma1_4'], dtype=dtype, copy=copy)
+        super(PairCoeffs, self).__init__(data=data, columns=['aType','aType2', 'epsilon', 'sigma', 'epsilon1_4', 'sigma1_4'], dtype=dtype, copy=copy)
 
     def setFromNAMD(self, charmm, mass):
         ''' Extracts info from PRM and PSF objects into self.
@@ -1016,9 +1016,12 @@ class PairCoeffs(ForceField):
         nonbonded['epsilon1_4'] = nonbonded.types.map(prmFF.epsilon.to_dict())
         nonbonded['sigma1_4'] = nonbonded.types.map(prmFF.Rmin2.to_dict())
         nonbonded.drop(columns=['types'], inplace=True)
-
+        
         nonbonded.rename(columns={'aID':'aType'}, inplace=True)
-        #print(nonbonded)
+        #Columna nueva para el Lennard-Jones y reorganizacion columna
+        nonbonded['aType2'] = nonbonded['aType']
+        nonbonded = nonbonded[['aType','aType2', 'epsilon','sigma','epsilon1_4','sigma1_4']]
+        print("aqui el nonbonded, la tabla:",nonbonded)
 
         super(PairCoeffs, self).__init__(nonbonded)
         #print("\nPairCoeffs Nans:\n",nonbonded.isna().sum())
