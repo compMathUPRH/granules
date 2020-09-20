@@ -79,7 +79,50 @@ def detectAtomTypes(charmm):
     types           .set_index('Type', inplace=True)
     return types.to_dict()['ID']
 
-
+#Clase para generar el archivo de configuracion para simulaciones en Lammps
+class InFileGenerator():
+    '''Write the default configuration for a .in file'''
+    Commentarios = ['Generar Caja con Atomos','Especificaciones de la corrida','Vecinos','Output y Simulacion']
+    
+    LammpsConfDefault = {'variable':'t index 5000','units':'lj','atom_style':'atomic','lattice':'fcc 1.0',
+                         'region':'box block 0  10.0 0 10.0 0 10.0','create_box':'3 box',
+                         'create_atoms':['1 single 5 5 8','1 single 8 5 6','2 single 7 5 7','2 single 3 6 6',
+                         '3 single 3 5 3','3 single 9 5 7'],'mass':['1 460','2 70','3 10'],
+                         'velocity':'all create 4 87287 loop geom','pair_style':'lj/cut 2.5',
+                         'pair_coeff':['1 1 5.0 2.0 10.0','1 2 7.5 1.5 10.0','2 2 10.0 1.0 10.0',
+                         '2 3 3.0 1.2 10.0','3 3 6.0 2.0 10.0'],'neighbor':'0.3 bin',
+                         'neigh_modify':'delay 0 every 40 check no','fix':'1 all nve','thermo':'200',
+                         'thermo_style':'custom elapsed pe ke etotal press temp',
+                         'dump':'d0 all image 100 dump.\*.jpg type type','run':'$t'}
+    
+    def __init__(self,filename='in.Prueba1'):
+        self.filename = filename
+            
+    def writeFile(self):
+        '''Write configurations in txt file'''
+        file = open(self.filename,"w+")
+        cont = 0
+        for variables in self.LammpsConfDefault:
+            if type(self.LammpsConfDefault[variables]) != list:
+                if variables not in ['lattice','velocity','neighbor','fix']: 
+                    file.write(variables +' '+self.LammpsConfDefault[variables]+'\n')
+                    print(variables +' '+self.LammpsConfDefault[variables]+'\n')
+                else:
+                    file.write('\n########'+self.Commentarios[cont]+'#######\n')
+                    file.write(variables +' '+self.LammpsConfDefault[variables]+'\n')
+                    print('\n'+variables +' '+self.LammpsConfDefault[variables]+'\n')
+                    cont+=1
+                    
+            else:
+                print("#########Key con listas###########")
+                for elemt in self.LammpsConfDefault[variables]:
+                    file.write(variables +' '+elemt+'\n')
+                    print(variables +' '+elemt+'\n')
+                print("\n")
+        file.close()
+        print("Termine de escribir.")
+        #return file
+        
 class LammpsBodySection(pd.DataFrame):
 
     def add(self, data):
@@ -452,13 +495,17 @@ class ForceFieldData():
         atomIds.rename(columns={'aType':'ajType', 'Q':'qj'}, inplace=True)
 
         # get epsilons and sigmas for each atom type
+        #areglar error
+        sameTypes = self.pairCoeffs[ self.pairCoeffs['aType'] == self.pairCoeffs['aType2'] ]
+        sameTypes.drop('aType2', axis=1, inplace=True) 
+        
         atomIds = atomIds.set_index('aiType').join(
-                        self.pairCoeffs.set_index('aType')
+                        sameTypes.set_index('aType')
                  ).reset_index(drop=True)
         atomIds.drop(columns=['epsilon1_4', 'sigma1_4'], inplace=True)
         atomIds.rename(columns={'epsilon':'epsilon_i', 'sigma':'sigma_i'}, inplace=True)
         atomIds = atomIds.set_index('ajType').join(
-                        self.pairCoeffs.set_index('aType')
+                        sameTypes.set_index('aType')
                  ).reset_index(drop=True).drop(columns=['epsilon1_4', 'sigma1_4'])
         atomIds.rename(columns={'epsilon':'epsilon_j', 'sigma':'sigma_j'}, inplace=True)
 
@@ -1019,9 +1066,10 @@ class PairCoeffs(ForceField):
         
         nonbonded.rename(columns={'aID':'aType'}, inplace=True)
         #Columna nueva para el Lennard-Jones y reorganizacion columna
+        print("Antes:\n",nonbonded)
         nonbonded['aType2'] = nonbonded['aType']
         nonbonded = nonbonded[['aType','aType2', 'epsilon','sigma','epsilon1_4','sigma1_4']]
-        print("aqui el nonbonded, la tabla:",nonbonded)
+        print("aqui el nonbonded, la tabla:\n",nonbonded)
 
         super(PairCoeffs, self).__init__(nonbonded)
         #print("\nPairCoeffs Nans:\n",nonbonded.isna().sum())
