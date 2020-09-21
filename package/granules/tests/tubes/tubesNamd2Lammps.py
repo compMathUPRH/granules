@@ -27,7 +27,7 @@ l.loadNAMDdata(ch)
 l.writeConf("tubos.data")
 
 print(l.charmmForce())
-subprocess.call(["lammps", "-in", "tubos.data"])#Error (arreglar)
+#subprocess.call(["lammps", "-in", "tubos.data"])#######Error (arreglar)
 
 '''codigo prueba 
 #print(l.charmmForce())
