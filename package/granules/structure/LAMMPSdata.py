@@ -184,8 +184,6 @@ class AtomPropertyData():
         coordMass = coordMass[['x','y','z']]
 
         return coordMass.mean()
-    
-   
   
 class MolecularTopologyData():
     def __init__(self):
@@ -230,7 +228,7 @@ class ForceFieldData():
         
      def setFromNAMD(self,charmm,atompropertydata,topology): #añadi este codigo nuevo 
         
-        self.pairCoeffs.setFromNAMD(charmm, atompropertydata.masses)
+        self.pairCoeffs.setFromNAMD(charmm, atompropertydata.atoms)
         self.bondCoeffs.setFromNAMD(charmm, topology.bonds)
         self.angleCoeffs.setFromNAMD(charmm, topology.angles)
         self.dihedralCoeffs.setFromNAMD(charmm, topology.dihedrals)
@@ -744,7 +742,7 @@ class AtomsDF(AtomProperty):
             self[coord] = self[coord] + b[coord]
         return self
 
-    def updateCoordinates(self,archivo):
+    def update_from_file(self,archivo):
         '''Actualiza las coordenadas x,y,z del dataframe'''
         fill = open(archivo,"r")
         coor = []
@@ -760,6 +758,19 @@ class AtomsDF(AtomProperty):
   
         #reemplaza los valores del dataframe viejo a los valores del dataframe nuevo
         for column in ['x', 'y', 'z']: self[column] = data[column].values
+    
+    def update_corrdinates(self, coords):
+        ''' Update coordintes. Coordinates in self may be less that the ones 
+        received in coords because a selection may have been made.
+        
+        coords: tuple with Series for X, Y, and Z.
+        '''
+        #print(self)
+        data = pd.DataFrame(np.array(coords).T,columns = ['x', 'y', 'z'])
+        data.set_index(np.arange(1,data.shape[0]+1), inplace=True)
+        data = data[data.index.isin(self.aID)]
+        for column in ['x', 'y', 'z']: self[column] = data[column].values
+        #print(data)
      
 class MassesDF(AtomProperty):
     def __init__(self,data=None, dtype=None, copy=False):
@@ -1032,7 +1043,7 @@ class PairCoeffs(ForceField):
     def __init__(self,data=None, dtype=None, copy=False):
         super(PairCoeffs, self).__init__(data=data, columns=['aType','aType2', 'epsilon', 'sigma', 'epsilon1_4', 'sigma1_4'], dtype=dtype, copy=copy)
 
-    def setFromNAMD(self, charmm, mass):
+    def setFromNAMD(self, charmm, atoms):
         ''' Extracts info from PRM and PSF objects into self.
 
         Parameter
@@ -1046,13 +1057,16 @@ class PairCoeffs(ForceField):
 
         # extract info from charmm
         psf_types   = charmm.psf.atoms[['ID', 'Type']].set_index('ID').to_dict()['Type']
-        #print(psf_types)
+        #print("PairCoeffs psf_types ", psf_types)
 
         # substitute atoms numbers with charmm atom types
-        nonbonded       = mass.copy()
-        nonbonded['types'] = nonbonded.aType.map(psf_types)
-        nonbonded.drop(columns=['Mass'], inplace=True)
-        #print(nonbonded)
+        nonbonded       = atoms[['aID', 'aType']].copy()
+        #print("PairCoeffs nonbonded A \n", nonbonded)
+        nonbonded['types'] = nonbonded.aID.map(psf_types)
+        #print("PairCoeffs nonbonded B \n", nonbonded)
+        nonbonded.drop(columns=['aID'], inplace=True)
+        nonbonded.drop_duplicates(inplace=True)
+        #print("PairCoeffs nonbonded C \n", nonbonded)
 
         prmFF = charmm.prm.nonbonded.getCoeffs()
         #print("Aqui el DF: ",prmFF)
@@ -1066,10 +1080,10 @@ class PairCoeffs(ForceField):
         
         nonbonded.rename(columns={'aID':'aType'}, inplace=True)
         #Columna nueva para el Lennard-Jones y reorganizacion columna
-        print("Antes:\n",nonbonded)
+        #print("PairCoeffs Antes:\n",nonbonded)
         nonbonded['aType2'] = nonbonded['aType']
-        nonbonded = nonbonded[['aType','aType2', 'epsilon','sigma','epsilon1_4','sigma1_4']]
-        print("aqui el nonbonded, la tabla:\n",nonbonded)
+        nonbonded = nonbonded[['aType','aType2', 'epsilon','sigma', 'epsilon1_4', 'sigma1_4']]
+        #print("PairCoeffs aqui el nonbonded, la tabla:\n",nonbonded)
 
         super(PairCoeffs, self).__init__(nonbonded)
         #print("\nPairCoeffs Nans:\n",nonbonded.isna().sum())
@@ -1569,7 +1583,7 @@ class LammpsData():
         self.topologia.angles = self.topologia.angles.append(other.topologia.angles)
         self.topologia.bonds = self.topologia.bonds.append(other.topologia.bonds)
         self.topologia.dihedrals = self.topologia.dihedrals.append(other.topologia.dihedrals)
-        self.topologia.impropers = self.topologia.impropers.append(other.topologia.impropers)
+        self.topologia.impropers = self.topologtopologiaia.impropers.append(other.topologia.impropers)
 
         
     def copy(self):#modifica
@@ -1586,7 +1600,7 @@ class LammpsData():
         ld.atomproperty.masses = self.atomproperty.masses.copy()
         # OH YEAHHH
         ld.topologia.angles = self.topologia.angles.copy()
-        ld.topologia.bonds = self.topologia.bonds.copy()
+        ld.topologia.bonds = self.topologia.btopologiaonds.copy()
         ld.topologia.dihedrals = self.topologia.dihedrals.copy()
         ld.topologia.impropers = self.topologia.impropers.copy()
         
@@ -1633,17 +1647,87 @@ class LammpsData():
             #Falta
         
         
-      
-       
-
-        
         '''
         #forceFieldSectio composi
         self.forceField = ForceFieldData()
         # molecular topology sections
         self.topologia = MolecularTopologyData()
         '''
-      
+        
+        
+    def bondLength(self,bondsID):
+        ''' Calculates the length of the bond between two atoms '''
+        #print("\nBonds Table\n", self.topologia.bonds,"\nResults\n")
+        #manera mas limpia de escribirlo (hasta ahora)
+        coordinates = self.atomproperty.atoms[['aID', 'x', 'y', 'z']].set_index('aID')
+        select = self.topologia.bonds.loc[self.topologia.bonds['bID'].isin(bondsID)]
+        a1 = select.join(coordinates, on='Atom1')[['x','y','z']]
+        a2 = select.join(coordinates, on='Atom2')[['x','y','z']]
+        #reset_index para iterar por los valores al combinar
+        return (np.sqrt(((a1-a2)**2).sum(axis=1))).reset_index(drop=True)
+    
+        '''#una manera de escribirlo
+        coordinates = self.atomproperty.atoms[['aID', 'x', 'y', 'z']].set_index('aID').copy()
+        #bl = self.topologia.bonds.join(coordinates, on='Atom1').rename(columns={'x':'x1','y':'y1','z':'z1'}).join(coordinates, on='Atom2')
+        bl = self.topologia.bonds.copy().join(coordinates, on= ['Atom1, Atom2'])
+        #.rename(columns={'x':'x1','y':'y1','z':'z1'}).join(coordinates, on= 'Atom2')
+        print(bl)
+        #return np.sqrt((bl['x1'] - bl['x'])**2 + (bl['y1'] - bl['y'])**2 + (bl['z1'] - bl['z'])**2)
+        #modificarlo mas bonito, intenta de hacerlo de un cantaso el calculo
+        '''
+        '''#segunda manera de escribirlo
+        #coordinates = self.atomproperty.atoms[['aID','x','y','z']].set_index('aID').copy() #gets the 3 coordinates columns
+        #bonds = self.topologia.bonds.copy() #gets the 3 bonds columns
+        #bonds = bonds.join(coordinates,on='Atom1')
+        #bonds = bonds.rename(columns={'x':'x1','y': 'y1','z','z1'})
+        #luego calcula con bonds['x1'] - bonds['x']
+        #print(bonds)
+        '''
+    def angleLength(self,atomIds):
+        '''Calculates the length of the angles between 3 atoms'''
+        
+        coordinates = self.atomproperty.atoms[['aID', 'x', 'y', 'z']].set_index('aID')
+        selection = self.topologia.angles.loc[self.topologia.angles['anID'].isin(atomIds)] 
+        a1 = selection.join(coordinates, on='Atom1')[['x','y','z']]
+        a2 = selection.join(coordinates, on='Atom2')[['x','y','z']]
+        a3 = selection.join(coordinates, on='Atom3')[['x','y','z']]
+        #print(self.topologia.angles.loc[self.topologia.angles['Atom3']==3])
+        #print("angleLength: " , a1,"\n",a2,"\n",a3)
+        
+        #vectores de ambos lados 
+        v1 = a1 - a2
+        v2 = a3 - a2
+        #print('#######calculos',v1,'\n',v2)
+        #sacamos el dot product(multiplicar vectores)
+        d = np.einsum('ij,ij->i', v1, v2) 
+        #print("anglelentgth: v1 * v2", d)
+        #calcula la magnitud de los lados
+        absolV1 = np.sqrt(((v1)**2).sum(axis=1))
+        absolV2 = np.sqrt(((v2)**2).sum(axis=1))
+        
+        #print("anglelength abs:", absolV1, absolV2)
+        #Calculamos angulo
+        product = d/(absolV1*absolV2)
+        #print("anglelength return:", np.arccos(product))
+        return np.arccos(product).reset_index(drop=True)
+    
+    ''' Esto crea información redundante con riesgo de que se vuelva inconsistente
+    def combineLength(self,bondTable,angleTable):
+        #Stores the lenght of bond and angle in single panda table
+        
+        table = pd.DataFrame({'Column_0':[bondTable.loc[0], angleTable.loc[0]]})
+        #print("aqui#2")
+        for index in range(1,len(bondTable)):
+            table['Column_'+str(index)] = [bondTable.loc[index],angleTable.loc[index]]
+            #table = table.append({'IDs': bondTable.loc[index]}, ignore_index = True).reset_index(drop=True)
+            #table = table.append({'IDs':angleTable.loc[index]}, ignore_index = True).reset_index(drop=True)
+
+            #table.append(angleTable.loc[index]).reset_index(drop=True)
+        return table 
+       
+               
+        #return bondTable.copy().append(angleTable).reset_index(drop=True)
+     '''
 _AVOGRADRO_CONSTANT_ = 6.02214129e+23
 
 class Region:
