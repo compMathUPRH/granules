@@ -18,7 +18,21 @@ ch.readFiles("2rvd_autopsf.pdb", "2rvd_autopsf.psf", "par_all36_prot.prm")
 l.loadNAMDdata(ch)
 l.writeConf("2rvd.data")
 
+print("La distancia de los atomos son: ")
+#print(l.atomproperty.atoms)
+print("###########Bonds###########")
+print(l.bondLength())
+print("###########Angles###########")
+print(l.angleLength())
+#print(l.topologia.bonds)
+
 '''
+print("Tabla de coordenadas: ")
+print(l.atomproperty.atoms[['x','y','z']])
+print("Tabla enlaces: ")
+print(l.topologia.bonds)
+
+
 #Pruebas para selectAtoms()
 
 print("Tabla antes de buscar el atomo: #######")

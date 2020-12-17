@@ -43,6 +43,24 @@ class PDB(pd.DataFrame):
                                            'Occupancy','TempFactor','Element','Charge']
         )
 
+
+    def select(self, selection, reverse=False):
+        '''
+        try:
+            col = 'Name'
+            self.__init__(data=self[self[col].isin(selection[col])])
+        except: pass
+        '''
+        for col in selection:
+            if col in self.columns:
+                if reverse:
+                    self.__init__(data=self[~self[col].isin(selection[col])])
+                else:
+                    self.__init__(data=self[self[col].isin(selection[col])])
+            else:
+                print("WARNING: Selection index \"{}\" was not recognized and it was ignored. Valid options are {}".format(col, self.columns))
+
+
     def readFile(self, filename):
         ''' reads PDB file and appends to self.
             Follows specifications of the atoms section in 
@@ -104,8 +122,7 @@ class PDB(pd.DataFrame):
         )
 
         #print("PDB.readFile(",filename,") ... END")
-
-
+            
 class PBC():
     ''' Stores periodic boundary conditions as 3 cell vectors and the coordinates
         of the origin.
@@ -157,6 +174,7 @@ class PBC():
                 #print("PBC.readFile(",filename,") ... self.cellOrigin = ", self.cellOrigin)
         #print("PBC.readFile(",filename,") ... END")
        
+#==============================================================================
 class PSF:
     ''' Pandas DataFrames that store data defined in the PSF file format specificaton.
         See specification in 
@@ -189,6 +207,10 @@ class PSF:
         self.cross_terms.readSection(filename)
         
         #print("PSF.readFile(",filename,") ... END")
+
+    def select(self, atoms):
+        for table in [self.atoms, self.bonds, self.angles, self.dihedrals, self.impropers, self.cross_terms]:
+            table.select(atoms)
 
     @staticmethod
     def readSection(filename, section, tupleLength, itemsPerLine):
@@ -242,6 +264,7 @@ class PSF:
         return data
     
 
+    #---------------- inner class of PSF --------------------------------------
     class ATOM(pd.DataFrame):
         ''' ATOM section of the PSF file format specification.'''
 
@@ -268,7 +291,12 @@ class PSF:
                      'Mass'   :float
                     }))
 
+        def select(self, atoms):
+            self.__init__(data=self[self['ID'].isin(atoms)])
 
+
+
+    #---------------- inner class of PSF --------------------------------------
     class BOND(pd.DataFrame):
         ''' BOND section of the PSF file format specification.'''
 
@@ -296,6 +324,10 @@ class PSF:
                      'atom2' :int
                     }))
 
+        def select(self, atoms):
+            self.__init__(data=self[self['atom1'].isin(atoms) & (self['atom2'].isin(atoms))])
+
+    #---------------- inner class of PSF --------------------------------------
     class THETA(pd.DataFrame):
         ''' THETA section of the PSF file format specification.'''
 
@@ -323,6 +355,10 @@ class PSF:
                      'atom3' :int
                     }))
 
+        def select(self, atoms):
+            self.__init__(data=self[self['atom1'].isin(atoms) & (self['atom2'].isin(atoms)) & (self['atom3'].isin(atoms))])
+
+    #---------------- inner class of PSF --------------------------------------
     class PHI(pd.DataFrame):
         ''' PHI section of the PSF file format specification.'''
 
@@ -360,6 +396,11 @@ class PSF:
 		                }))
 
 
+        def select(self, atoms):
+            self.__init__(data=self[self['atom1'].isin(atoms) & (self['atom2'].isin(atoms)) & (self['atom3'].isin(atoms)) & (self['atom4'].isin(atoms))])
+
+
+    #---------------- inner class of PSF --------------------------------------
     class IMPHI(pd.DataFrame):
         ''' IMPHI section of the PSF file format specification.'''
 
@@ -396,7 +437,11 @@ class PSF:
                          'atom4' :int
                         }))
 
+        def select(self, atoms):
+            self.__init__(data=self[self['atom1'].isin(atoms) & (self['atom2'].isin(atoms)) & (self['atom3'].isin(atoms)) & (self['atom4'].isin(atoms))])
 
+
+    #---------------- inner class of PSF --------------------------------------
     class CRTERM(pd.DataFrame):
         ''' CRTERM section of the PSF file format specification.'''
 
@@ -427,7 +472,10 @@ class PSF:
                 pair1.columns=['atom1','atom2','atom3','atom4']
                 super().__init__(data=self.append(pair1, ignore_index=True))
 
+        def select(self, atoms):
+            self.__init__(data=self[self['atom1'].isin(atoms) & (self['atom2'].isin(atoms)) & (self['atom3'].isin(atoms)) & (self['atom4'].isin(atoms))])
 
+#==============================================================================
 class PRM:
     ''' NAMDdata force field from a PRM file (CHARMM force field parameters).
         See format in https://www.ks.uiuc.edu/Training/Tutorials/namd/namd-tutorial-unix-html/node25.html
@@ -513,6 +561,7 @@ class PRM:
         return data
 
 
+    #---------------- inner class of PRM --------------------------------------
     class NONBONDED(pd.DataFrame):
         ''' Stores information from the NONBONDED section of the 
             NAMDdata force field from a PRM file (CHARMM force field parameters).
@@ -565,6 +614,7 @@ class PRM:
 
 
 
+    #---------------- inner class of PRM --------------------------------------
     class BONDS(pd.DataFrame):
         def __init__(self,data=None, dtype=None, copy=False):
             super(PRM.BONDS, self).__init__(data=data, copy=copy, columns=[
@@ -600,6 +650,7 @@ class PRM:
                     }))
 
 
+    #---------------- inner class of PRM --------------------------------------
     class ANGLES(pd.DataFrame):
         def __init__(self,data=None, dtype=None, copy=False):
             super(PRM.ANGLES, self).__init__(data=data, copy=copy, columns=[
@@ -643,6 +694,7 @@ class PRM:
                     }))
 
 
+    #---------------- inner class of PRM --------------------------------------
     class DIHEDRALS(pd.DataFrame):
         def __init__(self,data=None, dtype=None, copy=False):
             super(PRM.DIHEDRALS, self).__init__(data=data, copy=copy, columns=[
@@ -678,6 +730,7 @@ class PRM:
                      'delta' : float
                     }))
 
+    #---------------- inner class of PRM --------------------------------------
     class IMPROPER(pd.DataFrame):
         def __init__(self,data=None, dtype=None, copy=False):
             super(PRM.IMPROPER, self).__init__(data=data, copy=copy, columns=[
@@ -712,11 +765,12 @@ class PRM:
                     }))
 
 
-
+#==============================================================================
 class NAMDdataEsception(Exception):
     pass
         
 
+#==============================================================================
 class NAMDdata:
     ''' Groups PDB, PRM and PSF objects.'''
 
@@ -771,6 +825,19 @@ class NAMDdata:
         return self
 
  
+    def select(self, selection, reverse=False):
+        ''' selects atoms acording to selection
+        selection is a dictionary with nams of columns of class PDB as keys and 
+        lists of values to be selected as values.
+        '''
+
+        self.pdb.select(selection, reverse=reverse)
+        a_ids = self.pdb.ID
+        self.psf.select(a_ids)
+        #self.prm.select(Name=Name)
+        #self.pbc.select(Name=Name)
+            
+    
     def get_cycles_oflength(self,n):
         def DFS(graph, marked, n, vert, start, count, cycle): 
             global cycles_sets
