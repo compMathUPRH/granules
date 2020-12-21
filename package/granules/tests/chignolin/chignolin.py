@@ -21,9 +21,9 @@ l.writeConf("2rvd.data")
 print("La distancia de los atomos son: ")
 #print(l.atomproperty.atoms)
 print("###########Bonds###########")
-print(l.bondLength())
+print(l.bondLength(l.topologia.bonds.bID.values))
 print("###########Angles###########")
-print(l.angleLength())
+print(l.angleLength(l.topologia.angles.anID.values))
 #print(l.topologia.bonds)
 
 '''
