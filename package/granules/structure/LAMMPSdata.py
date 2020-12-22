@@ -435,6 +435,10 @@ class MolecularTopologyData(MolecularTopology):
             super(MolecularTopologyData.BondsDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
             super(MolecularTopologyData.BondsDF, self).__init__(self.drop([0]))
     
+        def selectTypes(self, bondType):
+            return self[self.bType == bondType].bID
+    
+    
         def setFromNAMD(self, charmm):
             ''' Extracts info from ATOMS object of a PSF object into self.
     
@@ -1699,34 +1703,29 @@ class LammpsData():
         '''
         
         
-    def bondLength(self,bondsID):
+    def bondLength(self,bondsID=set()):
         ''' Calculates the length of the bond between two atoms '''
         #print("\nBonds Table\n", self.topologia.bonds,"\nResults\n")
         #manera mas limpia de escribirlo (hasta ahora)
+        if set(bondsID) == set(): 
+            bondsID = set(self.topologia.bonds.bID)
+        
         coordinates = self.atomproperty.atoms[['aID', 'x', 'y', 'z']].set_index('aID')
-        select = self.topologia.bonds.loc[self.topologia.bonds['bID'].isin(bondsID)]
+        select = self.topologia.bonds.loc[
+                self.topologia.bonds['bID'].isin(bondsID)].copy()
         a1 = select.join(coordinates, on='Atom1')[['x','y','z']]
         a2 = select.join(coordinates, on='Atom2')[['x','y','z']]
         #reset_index para iterar por los valores al combinar
-        return (np.sqrt(((a1-a2)**2).sum(axis=1))).reset_index(drop=True)
-    
-        '''#una manera de escribirlo
-        coordinates = self.atomproperty.atoms[['aID', 'x', 'y', 'z']].set_index('aID').copy()
-        #bl = self.topologia.bonds.join(coordinates, on='Atom1').rename(columns={'x':'x1','y':'y1','z':'z1'}).join(coordinates, on='Atom2')
-        bl = self.topologia.bonds.copy().join(coordinates, on= ['Atom1, Atom2'])
-        #.rename(columns={'x':'x1','y':'y1','z':'z1'}).join(coordinates, on= 'Atom2')
-        print(bl)
-        #return np.sqrt((bl['x1'] - bl['x'])**2 + (bl['y1'] - bl['y'])**2 + (bl['z1'] - bl['z'])**2)
-        #modificarlo mas bonito, intenta de hacerlo de un cantaso el calculo
-        '''
-        '''#segunda manera de escribirlo
-        #coordinates = self.atomproperty.atoms[['aID','x','y','z']].set_index('aID').copy() #gets the 3 coordinates columns
-        #bonds = self.topologia.bonds.copy() #gets the 3 bonds columns
-        #bonds = bonds.join(coordinates,on='Atom1')
-        #bonds = bonds.rename(columns={'x':'x1','y': 'y1','z','z1'})
-        #luego calcula con bonds['x1'] - bonds['x']
-        #print(bonds)
-        '''
+        select['dist'] = (np.sqrt(((a1-a2)**2).sum(axis=1)))#.reset_index(drop=True)
+        return select[['bID','bType','dist']]#.set_index('bID')
+
+
+    def meanBondLengthByType(self):
+        bLengths = self.bondLength()
+        bLengths['bType'] = self.topologia.bonds.bType
+        return bLengths.groupby('bType').mean()
+
+
     def angleLength(self,atomIds):
         '''Calculates the length of the angles between 3 atoms'''
         

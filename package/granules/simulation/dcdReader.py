@@ -93,7 +93,7 @@ class DCDReader(object):#pq tiene object?
 			self.dcdfile . read  (INT_SIZE)                          # size of arrays
 			pbc = [unpack('d', self.dcdfile.read(DOUBLE_SIZE))[0] for i in range(6)]
 			self.dcdfile . read  (INT_SIZE)                          # size of arrays
-			print("PBC=",pbc)
+			#print("PBC=",pbc)
 		else: pbc = None
 
 		if self.currentFrame == 1 or self.namnf == 0:  # always True in NAMD

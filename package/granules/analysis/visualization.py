@@ -37,7 +37,7 @@ for X,Y,Z,pbc in trayectoria:
     ld.atomproperty.atoms.update_corrdinates((X,Y,Z))
     bonds = ld.bondLength(ld.topologia.bonds.bID.values)  # todos los enlaces
     angles = ld.angleLength(ld.topologia.angles.anID.values)
-    corrida[contador] = bonds.append(angles).reset_index(drop=True)
+    corrida[contador] = bonds.dist.append(angles).reset_index(drop=True)
     contador += 1
 
 correlacion = corrida.corr()
