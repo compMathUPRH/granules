@@ -34,10 +34,10 @@ import pandas as pd
 import numpy as np
 import random
 
-try:
-    import networkx as nx
-except Exception as e:
-    print("module networkx not found, some functionality may not be available")
+#try:
+#    import networkx as nx
+#except Exception as e:
+#    print("module networkx not found, some functionality may not be available")
 
 def findWithX(typeTuple, pardict):
     ''' Pair 'typeTuple' tuples with correct coefficients found on the 'pardict' 
@@ -123,6 +123,23 @@ class InFileGenerator():
         print("Termine de escribir.")
         #return file
         
+#===================================================================
+#Clases temporeras que hereda de panda,las subclases de sus clases originales(nombre)
+#   se pasaron a estas nuevas clases.
+
+class Atoms():#cambiado LammpsDataFrame
+    def __init__(self):
+        pass
+   
+class MolecularTopology():
+    def __init__(self):
+        pass
+    
+class ForceField():
+    def __init__(self):
+         pass
+#===================================================================
+         
 class LammpsDataFrame(pd.DataFrame):
 
     def add(self, data):
@@ -160,7 +177,7 @@ class LammpsDataFrame(pd.DataFrame):
 
 #===================================================================
 
-class AtomPropertyData():
+class AtomsFull(Atoms):
     def __init__(self):
         
         # atom-property sections
@@ -189,9 +206,9 @@ class AtomPropertyData():
         def __init__(self,data=None, dtype=None, copy=False):
             dtypes = {'aID':[0], 'Mol_ID':[0], 'aType':[0], 'Q':[0.0], 
                       'x':[0.0], 'y':[0.0], 'z':[0.0], 'Nx':[0], 'Ny':[0], 'Nz':[0]}   
-            super(AtomPropertyData.AtomsDF, self).__init__(data=dtypes, copy=copy, columns=['aID', 'Mol_ID', 'aType', 'Q', 
+            super(LammpsDataFrame, self).__init__(data=dtypes, copy=copy, columns=['aID', 'Mol_ID', 'aType', 'Q', 
                       'x', 'y', 'z', 'Nx', 'Ny', 'Nz'])
-            super(AtomPropertyData.AtomsDF, self).__init__(self.drop([0]))
+            super(LammpsDataFrame, self).__init__(self.drop([0]))
             
         def setFromNAMD(self, charmm):
             ''' Extracts info from ATOMS object of a PSF object into self.
@@ -233,7 +250,7 @@ class AtomPropertyData():
             
             #sel.reset_index(inplace=True)
             #print("sel = ", sel.dtypes)
-            super(AtomPropertyData.AtomsDF, self).__init__(sel.astype({
+            super(LammpsDataFrame, self).__init__(sel.astype({
                          'Mol_ID' :int,
                          'aType' :int,
                          'Q' :float,
@@ -288,8 +305,8 @@ class AtomPropertyData():
         def __init__(self,data=None, dtype=None, copy=False):
             if data  is None:
                 dtypes = {'aType':[0], 'Mass':[0.0]}
-                super(AtomPropertyData.MassesDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
-                super(AtomPropertyData.MassesDF, self).__init__(self.drop([0]))
+                super(LammpsDataFrame, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
+                super(LammpsDataFrame, self).__init__(self.drop([0]))
      
         def setFromNAMD(self, psf_atoms, atoms):
             ''' Extracts info from ATOMS object of a PSF object into self.
@@ -313,14 +330,14 @@ class AtomPropertyData():
             #sel      .rename(columns={"Type":"mID"}, inplace=True)
             #print(sel.dtypes)
     
-            super(AtomPropertyData.MassesDF, self).__init__(sel)
+            super(LammpsDataFrame, self).__init__(sel)
     
     
     class VelocitiesDF(LammpsDataFrame):
         def __init__(self,data=None, dtype=None, copy=False):
             dtypes = {'vID':[0], 'Vx':[0.0], 'Vy':[0.0], 'Vz':[0.0]}
-            super(AtomPropertyData.VelocitiesDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
-            super(AtomPropertyData.VelocitiesDF, self).__init__(self.drop([0]))
+            super(LammpsDataFrame, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
+            super(LammpsDataFrame, self).__init__(self.drop([0]))
        
         def setToZero(self, atoms):
             ''' Sets velocitis of atoms to zero.
@@ -339,10 +356,10 @@ class AtomPropertyData():
             sel['Vz']     = np.zeros((len(sel), 1))
             #print("VelocitiesDF sel = ", sel.dtypes)
     
-            super(AtomPropertyData.VelocitiesDF, self).__init__(sel)
+            super(LammpsDataFrame, self).__init__(sel)
 
   
-class MolecularTopologyData():
+class MolecularTopologyData(MolecularTopology):
     def __init__(self):
         
         # molecular topology sections
@@ -568,7 +585,7 @@ class MolecularTopologyData():
 
 
 
-class CharmmForceField():
+class CharmmForceField(ForceField):
      def __init__(self):
 
         #force field sections
@@ -610,7 +627,7 @@ class CharmmForceField():
 
             returns (L-J, Coulomb)
         '''
-        from scipy.constants import epsilon_0, physical_constants
+        #from scipy.constants import epsilon_0, physical_constants
 
         NONB_CUTOFF = 13.0
 
@@ -815,6 +832,8 @@ class CharmmForceField():
         
         # generate all pairs of atoms IDs
         #atomIds = atompropertydata.atoms[['aID']].copy()#Fastidia a pyreverse
+        raise Exception("Instruction in CharmmForceField.NonBondForce() hidden to make pyreverse work.")
+        
         atomIds['key'] = np.ones(len(atomIds))
         atomIds = pd.merge(atomIds, atomIds, on='key')[['aID_x', 'aID_y']]
         atomIds = atomIds[atomIds['aID_x'] < atomIds['aID_y']]
@@ -927,7 +946,7 @@ class CharmmForceField():
         
         bij = bij.div(rbij, axis=0)  # normalize
         wi = bij.mul(forces, axis=0)
-        wj = bij.mul(-forces, axis=0)
+        #wj = bij.mul(-forces, axis=0)
         
         fi = wi.join(topologia.bonds.set_index('bID'))[['x','y','z','Atom1']].groupby('Atom1').sum()
         fj = wi.join(topologia.bonds.set_index('bID'))[['x','y','z','Atom2']].groupby('Atom2').sum()
@@ -977,7 +996,7 @@ class CharmmForceField():
         c12 = l1.x * l2.x + l1.y * l2.y + l1.z * l2.z
         c22 = l2.x * l2.x + l2.y * l2.y + l2.z * l2.z
         cd = np.sqrt(c11 * c22)
-        c = c12 / cd
+        #c = c12 / cd
         
         forces = -2 * K * (angles-a0)
         
@@ -1261,25 +1280,44 @@ class CharmmForceField():
             super(CharmmForceField.ImproperCoeffs, self).__init__(impropers)    
         	
 
-#===================================================================
-#Clases temporeras que hereda de panda,las subclases de sus clases originales(nombre)
-#   se pasaron a estas nuevas clases.
-
-class AtomProperty():#cambiado LammpsDataFrame
-    def __init__(self):
-        self.atomproperty = AtomPropertyData()
-   
-class MolecularTopology():
-    def __init__(self):
-        self.topologia = MolecularTopologyData()
-    
-class ForceField():
-    def __init__(self):
-         self.forceField = CharmmForceField()
-         
 #=====================================================================
 
-#Aqui estaba las clases Df del AtomPropertyData
+class Region:
+    '''
+        Container for the Mixture.
+    '''
+    
+    __DENSITY = {None:[0,0,1],"WATER": [0.9970479,298.15,18.01528], "Chloroform":[1.483,298.15,119.38], "Chloroform (4 atoms)": [1.483,298.15,119.38], "Acetone": [0.786,293.15,58.08], "THF": [0.886,293.15,72.11], "Argon": [5.537, 0.03049,39.948], "Methanol": [0.791,293.15,32.04], "Selected Molecule": [0.9970479,298.15,18.01528]}
+    __DI = 0
+    __TI = 1
+    __MI = 2
+
+    def __init__(self, cid=1):
+        '''
+            id (int): identifier (LAMPS style)
+        '''
+        # Lammps-style variables
+        self.id = cid
+        
+    def lammpsCommand(self, mixture):
+        ''' to be done '''
+        pass
+
+    def setId(self, cid): self.id = cid
+    
+    def amountSolventMolecules(self, solvent):
+            #import numpy
+            global _AVOGRADRO_CONSTANT_
+            D = self.__DENSITY[solvent][self.__DI]
+            MM = self.__DENSITY[solvent][self.__MI]
+            V = self.volume() / 1E24
+            if V == 0: return 0
+            
+            #print "computeMolecules ", D,V,MM,D * V / MM * _AVOGRADRO_CONSTANT_
+            n = int(D * V / MM * _AVOGRADRO_CONSTANT_)
+    
+            return n
+
          
 #===================================================================
 
@@ -1297,7 +1335,7 @@ class LammpsData():
         See "Format of a data file" section in https://lammps.sandia.gov/doc/read_data.html
     '''
 
-    def __init__(self,file=None):
+    def __init__(self,file=None, atoms=Atoms(), topology=MolecularTopology(), forceField=ForceField(), region=Region()):
 
         '''
         self['Ellipsoids']  = EllipsoidsDF()
@@ -1308,29 +1346,35 @@ class LammpsData():
         '''
         
         #forceFieldSectio composi
-        self.forceField = CharmmForceField()
+        assert isinstance(forceField, ForceField)
+        self.forceField = forceField
         
         # atom-property sections
-        self.atomproperty = AtomPropertyData()
+        assert isinstance(atoms, Atoms)
+        self.atomproperty = atoms
         
         # molecular topology sections
-        self.topologia = MolecularTopologyData()
+        assert isinstance(topology, MolecularTopology)
+        self.topologia = topology
         
-        self.region = Box()
+        assert isinstance(region, Region)
+        self.region = region
         
         if file:
             self.read(file)
         
 
     def read(self, filename):
-    
+        ''' Reads a LAMMS .data file.
+        '''
+        
         #Abrir el archivo para leer datos
         arch = open(filename, 'r')
-        serial = 1
-        ind = 0
-        num = []
-        tipo = []
-        caja = []
+        #serial = 1
+        #ind = 0
+        #num = []
+        #tipo = []
+        #caja = []
         
         #l = LammpsData()
                
@@ -1364,17 +1408,17 @@ class LammpsData():
                        
                 #Almacenar toda la data de esa seccion
                 if key == 'Masses': self.atomproperty.masses.add(data)
-                if key == 'Pair Coeffs': self.forceField.pairCoeffs.add(data)
-                if key == 'Bond Coeffs': self.forceField.bondCoeffs.add(data)
-                if key == 'Angle Coeffs': self.forceField.angleCoeffs.add(data)                
-                if key == 'Dihedral Coeffs': self.topologia.dihedralCoeffs.add(data)
-                if key == 'Improper Coeffs':self.forceField.improperCoeffs.add(data)
-                if key == 'Atoms': self.atomproperty.atoms.add(data)                
-                if key == 'Velociteies': self.atomproperty.velocities.add(data)   
-                if key == 'Bonds': self.topologia.bonds.add(data)
-                if key == 'Angles': self.topologia.angles.add(data)                
-                if key == 'Dihedrals': self.topologia.dihedrals.add(data)
-                if key == 'Impropers':self.topologia.impropers.add(data)                
+                elif key == 'Pair Coeffs': self.forceField.pairCoeffs.add(data)
+                elif key == 'Bond Coeffs': self.forceField.bondCoeffs.add(data)
+                elif key == 'Angle Coeffs': self.forceField.angleCoeffs.add(data)                
+                elif key == 'Dihedral Coeffs': self.topologia.dihedralCoeffs.add(data)
+                elif key == 'Improper Coeffs':self.forceField.improperCoeffs.add(data)
+                elif key == 'Atoms': self.atomproperty.atoms.add(data)                
+                elif key == 'Velociteies': self.atomproperty.velocities.add(data)   
+                elif key == 'Bonds': self.topologia.bonds.add(data)
+                elif key == 'Angles': self.topologia.angles.add(data)                
+                elif key == 'Dihedrals': self.topologia.dihedrals.add(data)
+                elif key == 'Impropers':self.topologia.impropers.add(data)                
               
         arch.close()                
            
@@ -1384,16 +1428,19 @@ class LammpsData():
         #print("loadNAMDdata=",charmm.psf.dihedrals)
         
         #AtomPropertyData
+        #if not isinstance(self.atomproperty, AtomsFull): self.atomproperty = AtomsFull()
         self.atomproperty.setFromNAMD(charmm)
         
         # MolecularTopologyData
+        #self.topologia = MolecularTopologyData()
         self.topologia.setFromNAMD(charmm)
        
         # CharmmForceField
-      
+        #self.forceField = CharmmForceField()
         self.forceField.setFromNAMD(charmm, self.atomproperty,self.topologia)
         
         # MolecularTopologyData
+        #self.region = Box()
         self.region.setFromNAMD(charmm)
        
         '''
@@ -1727,49 +1774,13 @@ class LammpsData():
      '''
 _AVOGRADRO_CONSTANT_ = 6.02214129e+23
 
-class Region:
-    '''
-        Container for the Mixture.
-    '''
-    
-    DENSITY = {None:[0,0,1],"WATER": [0.9970479,298.15,18.01528], "Chloroform":[1.483,298.15,119.38], "Chloroform (4 atoms)": [1.483,298.15,119.38], "Acetone": [0.786,293.15,58.08], "THF": [0.886,293.15,72.11], "Argon": [5.537, 0.03049,39.948], "Methanol": [0.791,293.15,32.04], "Selected Molecule": [0.9970479,298.15,18.01528]}
-    DI = 0
-    TI = 1
-    MI = 2
-
-    def __init__(self, cid=None):
-        '''
-            id (int): identifier (LAMPS style)
-        '''
-        # Lammps-style variables
-        self.id = cid
-        
-    def lammpsCommand(self, mixture):
-        ''' to be done '''
-        pass
-
-    def setId(self, cid): self.id = cid
-    
-    def amountSolventMolecules(self, solvent):
-            #import numpy
-            global _AVOGRADRO_CONSTANT_
-            D = self.DENSITY[solvent][self.DI]
-            MM = self.DENSITY[solvent][self.MI]
-            V = self.volume() / 1E24
-            if V == 0: return 0
-            
-            #print "computeMolecules ", D,V,MM,D * V / MM * _AVOGRADRO_CONSTANT_
-            n = int(D * V / MM * _AVOGRADRO_CONSTANT_)
-    
-            return n
-
 
 # ===========================================
 class Box(Region):
     '''
         Defines a box with rectangular anlges (similar to block in LAMMPS)
     '''
-    def __init__(self, cid=None, maxsMins=None):
+    def __init__(self, cid=1, maxsMins=None):
         '''        
             maxsMins = (xmin, xmax, ymin, ymax, zmin, zmax) or None
         '''
