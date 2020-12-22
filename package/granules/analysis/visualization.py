@@ -9,7 +9,7 @@ Created on Tue Dec 15 21:32:03 2020
 #heatMap
 
 from granules.simulation import dcdReader
-from granules.structure.LAMMPSdata import LammpsData
+from granules.structure.LAMMPSdata import LammpsData, AtomsFull, MolecularTopologyData, CharmmForceField, Box
 from granules.structure.NAMDdata import NAMDdata
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -23,7 +23,8 @@ namdChignolin.readFiles('../tests/chignolin/chignolin.pdb', '../tests/chignolin/
 nombre_atomos = ['CA', 'C', 'N']
 namdChignolin.select({'Name':nombre_atomos})
 
-ld = LammpsData()
+ld = LammpsData(atoms=AtomsFull(), topology=MolecularTopologyData(), forceField=CharmmForceField(), region=Box())
+
 ld.loadNAMDdata(namdChignolin)
 trayectoria = dcdReader.Trajectory("../tests/chignolin/chignolin.dcd")
 

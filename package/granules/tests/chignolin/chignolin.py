@@ -9,9 +9,10 @@ Lyxaira Glass 2019
 
 
 from granules.structure.NAMDdata import PDB, PSF, PRM, NAMDdata
-from granules.structure.LAMMPSdata import LammpsData
+from granules.structure.LAMMPSdata import LammpsData, AtomsFull, MolecularTopologyData, CharmmForceField, Box
 
-l = LammpsData()
+
+l = LammpsData(atoms=AtomsFull(), topology=MolecularTopologyData(), forceField=CharmmForceField(), region=Box())
 ch = NAMDdata()
 ch.readFiles("2rvd_autopsf.pdb", "2rvd_autopsf.psf", "par_all36_prot.prm")
 
