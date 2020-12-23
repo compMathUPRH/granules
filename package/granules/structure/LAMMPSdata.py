@@ -1709,10 +1709,8 @@ class LammpsData():
         #manera mas limpia de escribirlo (hasta ahora)
         if set(bondsID) == set(): 
             bondsID = set(self.topologia.bonds.bID)
-        
         coordinates = self.atomproperty.atoms[['aID', 'x', 'y', 'z']].set_index('aID')
-        select = self.topologia.bonds.loc[
-                self.topologia.bonds['bID'].isin(bondsID)].copy()
+        select = self.topologia.bonds.loc[self.topologia.bonds['bID'].isin(bondsID)].copy()
         a1 = select.join(coordinates, on='Atom1')[['x','y','z']]
         a2 = select.join(coordinates, on='Atom2')[['x','y','z']]
         #reset_index para iterar por los valores al combinar
@@ -1726,11 +1724,12 @@ class LammpsData():
         return bLengths.groupby('bType').mean()
 
 
-    def angleLength(self,atomIds):
+    def angleLength(self,atomIds=set()):
         '''Calculates the length of the angles between 3 atoms'''
-        
+        if set(atomIds) == set(): 
+            atomIds = set(self.topologia.angles.anID)        
         coordinates = self.atomproperty.atoms[['aID', 'x', 'y', 'z']].set_index('aID')
-        selection = self.topologia.angles.loc[self.topologia.angles['anID'].isin(atomIds)] 
+        selection = self.topologia.angles.loc[self.topologia.angles['anID'].isin(atomIds)].copy() 
         a1 = selection.join(coordinates, on='Atom1')[['x','y','z']]
         a2 = selection.join(coordinates, on='Atom2')[['x','y','z']]
         a3 = selection.join(coordinates, on='Atom3')[['x','y','z']]
@@ -1752,7 +1751,13 @@ class LammpsData():
         #Calculamos angulo
         product = d/(absolV1*absolV2)
         #print("anglelength return:", np.arccos(product))
-        return np.arccos(product).reset_index(drop=True)
+        selection['dist'] = np.arccos(product).reset_index(drop=True)
+        return selection[['anID','anType','dist']]
+    
+    def meanAngleLengthByType(self):
+        anLengths = self.angleLength()
+        anLengths['anType'] = self.topologia.angles.anType
+        return anLengths.groupby('anType').mean()
     
     ''' Esto crea información redundante con riesgo de que se vuelva inconsistente
     def combineLength(self,bondTable,angleTable):

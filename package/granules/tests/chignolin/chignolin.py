@@ -24,8 +24,10 @@ print("La distancia de los atomos son: ")
 print("###########Bonds###########")
 print(l.bondLength())
 print(l.bondLength(bondsID=l.topologia.bonds.selectTypes(2)))
+print("\n",l.meanBondLengthByType())
 print("###########Angles###########")
 print(l.angleLength(l.topologia.angles.anID.values))
+print(l.meanAngleLengthByType())
 #print(l.topologia.bonds)
 
 '''
