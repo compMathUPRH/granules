@@ -620,7 +620,7 @@ class CharmmForceField(ForceField):
         self.dihedralCoeffs.setFromNAMD(charmm, topology.dihedrals)
         self.improperCoeffs.setFromNAMD(charmm, topology.impropers)
         
-     def NonBondEnergy(self,atompropertydata,topologia):
+     def NonBondEnergy(self,atompropertydata,topology):
         ''' Computes CHARMM Lennard-Jones energy.
             Formula: Eps,i,j[(Rmin,i,j/ri,j)**12 - 2(Rmin,i,j/ri,j)**6]
                     Eps,i,j = sqrt(eps,i * eps,j)
@@ -657,7 +657,7 @@ class CharmmForceField(ForceField):
 
         # remove bonded atoms
         atomIds['p'] = list(zip(atomIds.aID_x, atomIds.aID_y))
-        bonds = topologia.bonds.copy()
+        bonds = topology.bonds.copy()
         bonds['p'] = list(zip(bonds.Atom1, bonds.Atom2))
         atomIds = atomIds.set_index('p').join(bonds.set_index('p'))
         atomIds = atomIds[atomIds.bID.isna()][['aID_x','aID_y','nbID','rij']].reset_index(drop=True)
@@ -665,7 +665,7 @@ class CharmmForceField(ForceField):
 
         # remove angled atoms
         atomIds['p'] = list(zip(atomIds.aID_x, atomIds.aID_y))
-        angles = topologia.angles.copy()
+        angles = topology.angles.copy()
         angles['p'] = list(zip(angles.Atom1, angles.Atom3))
         atomIds = atomIds.set_index('p').join(angles.set_index('p'))
         atomIds = atomIds[atomIds.anID.isna()][['aID_x','aID_y','nbID','rij']].reset_index(drop=True)
@@ -711,23 +711,23 @@ class CharmmForceField(ForceField):
         return -np.sum(atomIds.epsilon * ((atomIds.sigma/atomIds.rij)**12 - (atomIds.sigma/atomIds.rij)**6)), \
                COULOMB * np.sum((atomIds.qi * atomIds.qj) / (atomIds.rij))
 
-     def BondEnergy(self,atompropertydata,topologia):
+     def BondEnergy(self,atompropertydata,topology):
         ''' Computes CHARMM bond energy.
 
             Formula: sum K * (bij - b0)**2
         '''
-        bi = topologia.bonds.set_index('Atom1').join(
+        bi = topology.bonds.set_index('Atom1').join(
                 atompropertydata.atoms.set_index('aID')
              )[['bID','x', 'y', 'z']].set_index('bID')
 
-        bj = topologia.bonds.set_index('Atom2').join(
+        bj = topology.bonds.set_index('Atom2').join(
                 atompropertydata.atoms.set_index('aID')
              )[['bID','x', 'y', 'z']].set_index('bID')
 
 
         bij = np.sqrt(np.sum((bi - bj) ** 2, axis='columns'))  # bonds lengths
 
-        coeffs = topologia.bonds[['bID','bType']].set_index('bType').join(
+        coeffs = topology.bonds[['bID','bType']].set_index('bType').join(
                         self.bondCoeffs.set_index('bType')
                  ).reset_index(drop=True)
         K = coeffs[['bID','Spring_Constant']].set_index('bID').Spring_Constant
@@ -736,20 +736,20 @@ class CharmmForceField(ForceField):
         return np.sum(K * (bij-b0)**2)
 
 
-     def AngleEnergy(self,atompropertydata,topologia):
+     def AngleEnergy(self,atompropertydata,topology):
         ''' Computes CHARMM angle energy.
             Formula: sum K * (aij - a0)**2
 
         '''
-        bi = topologia.angles.set_index('Atom1').join(
+        bi = topology.angles.set_index('Atom1').join(
                 atompropertydata.atoms.set_index('aID')
              )[['anID','x', 'y', 'z']].set_index('anID')
 
-        bj = topologia.angles.set_index('Atom2').join(
+        bj = topology.angles.set_index('Atom2').join(
                 atompropertydata.atoms.set_index('aID')
              )[['anID','x', 'y', 'z']].set_index('anID')
 
-        bk = topologia.angles.set_index('Atom3').join(
+        bk = topology.angles.set_index('Atom3').join(
                 atompropertydata.atoms.set_index('aID')
              )[['anID','x', 'y', 'z']].set_index('anID')
 
@@ -762,7 +762,7 @@ class CharmmForceField(ForceField):
         dot = l1.x * l2.x + l1.y * l2.y + l1.z * l2.z
         angles = np.arccos(dot / (norm1 * norm2))
 
-        coeffs = topologia.angles[['anID','anType']].set_index('anType').join(
+        coeffs = topology.angles[['anID','anType']].set_index('anType').join(
                         self.angleCoeffs.set_index('anType')
                  ).reset_index(drop=True)
 
@@ -771,23 +771,23 @@ class CharmmForceField(ForceField):
 
         return np.sum(K * (angles-a0)**2)
 
-     def DihedralsEnergy(self,atompropertydata,topologia):
+     def DihedralsEnergy(self,atompropertydata,topology):
         ''' Computes CHARMM angle energy.
             Formula: sum K * (1 + cos(n * x - d))
         '''
-        bi = topologia.dihedrals.set_index('Atom1').join(
+        bi = topology.dihedrals.set_index('Atom1').join(
                 atompropertydata.atoms.set_index('aID')
              )[['dID','x', 'y', 'z']].set_index('dID')
 
-        bj = topologia.dihedrals.set_index('Atom2').join(
+        bj = topology.dihedrals.set_index('Atom2').join(
                 atompropertydata.atoms.set_index('aID')
              )[['dID','x', 'y', 'z']].set_index('dID')
 
-        bk = topologia.dihedrals.set_index('Atom3').join(
+        bk = topology.dihedrals.set_index('Atom3').join(
                 atompropertydata.atoms.set_index('aID')
              )[['dID','x', 'y', 'z']].set_index('dID')
 
-        bl = topologia.dihedrals.set_index('Atom4').join(
+        bl = topology.dihedrals.set_index('Atom4').join(
                 atompropertydata.atoms.set_index('aID')
              )[['dID','x', 'y', 'z']].set_index('dID')
 
@@ -805,8 +805,8 @@ class CharmmForceField(ForceField):
         angles = np.degrees(np.arccos(np.abs(np.einsum('ij,ij->i', normals1, normals2))))
 
         # get CHARMM constants
-        print(topologia.dihedrals)
-        coeffs = topologia.dihedrals[['dID','dType']].set_index('dType').join(
+        print(topology.dihedrals)
+        coeffs = topology.dihedrals[['dID','dType']].set_index('dType').join(
                         self.dihedralCoeffs.set_index('dType')
                  ).reset_index(drop=True)
         K = coeffs[['dID','Kchi']].set_index('dID').Kchi
@@ -820,7 +820,7 @@ class CharmmForceField(ForceField):
         '''
 
 
-     def NonBondForce(self,atompropertydata,topologia):
+     def NonBondForce(self,atompropertydata,topology):
         ''' Computes CHARMM Lennard-Jones energy.
             Formula: Eps,i,j[(Rmin,i,j/ri,j)**12 - 2(Rmin,i,j/ri,j)**6]
                     Eps,i,j = sqrt(eps,i * eps,j)
@@ -853,7 +853,7 @@ class CharmmForceField(ForceField):
         # remove bonded atoms
         print('CharmmForceField.NonBondForce: len(atomIds < NONB_CUTOFF)=', len(atomIds))
         atomIds['p'] = list(zip(atomIds.aID_x, atomIds.aID_y))
-        bonds = topologia.bonds.copy()
+        bonds = topology.bonds.copy()
         bonds['p'] = list(zip(bonds.Atom1, bonds.Atom2))
         atomIds = atomIds.set_index('p').join(bonds.set_index('p'))
         atomIds = atomIds[atomIds.bID.isna()][['aID_x','aID_y','nbID','rij']].reset_index(drop=True)
@@ -862,7 +862,7 @@ class CharmmForceField(ForceField):
 
         # remove angled atoms
         atomIds['p'] = list(zip(atomIds.aID_x, atomIds.aID_y))
-        angles = topologia.angles.copy()
+        angles = topology.angles.copy()
         angles['p'] = list(zip(angles.Atom1, angles.Atom3))
         atomIds = atomIds.set_index('p').join(angles.set_index('p'))
         atomIds = atomIds[atomIds.anID.isna()][['aID_x','aID_y','nbID','rij']].reset_index(drop=True)
@@ -924,23 +924,23 @@ class CharmmForceField(ForceField):
         return ff
 
 
-     def BondForce(self,atompropertydata,topologia):
+     def BondForce(self,atompropertydata,topology):
         ''' Computes CHARMM bond energy.
             Formula: sum K * (bij - b0)**2
 
         '''
-        bi = topologia.bonds.set_index('Atom1').join(
+        bi = topology.bonds.set_index('Atom1').join(
                 atompropertydata.atoms.set_index('aID')
              )[['bID','x', 'y', 'z']].set_index('bID')
 
-        bj = topologia.bonds.set_index('Atom2').join(
+        bj = topology.bonds.set_index('Atom2').join(
                 atompropertydata.atoms.set_index('aID')
              )[['bID','x', 'y', 'z']].set_index('bID')
 
         bij = bj - bi  # bonds
         rbij = np.sqrt(np.sum((bij) ** 2, axis='columns'))  # bonds lengths
 
-        coeffs = topologia.bonds[['bID','bType']].set_index('bType').join(
+        coeffs = topology.bonds[['bID','bType']].set_index('bType').join(
                         self.bondCoeffs.set_index('bType')
                  ).reset_index(drop=True)
         K = coeffs[['bID','Spring_Constant']].set_index('bID').Spring_Constant
@@ -952,8 +952,8 @@ class CharmmForceField(ForceField):
         wi = bij.mul(forces, axis=0)
         #wj = bij.mul(-forces, axis=0)
         
-        fi = wi.join(topologia.bonds.set_index('bID'))[['x','y','z','Atom1']].groupby('Atom1').sum()
-        fj = wi.join(topologia.bonds.set_index('bID'))[['x','y','z','Atom2']].groupby('Atom2').sum()
+        fi = wi.join(topology.bonds.set_index('bID'))[['x','y','z','Atom1']].groupby('Atom1').sum()
+        fj = wi.join(topology.bonds.set_index('bID'))[['x','y','z','Atom2']].groupby('Atom2').sum()
         fi.index.names = ['aID']
         fj.index.names = ['aID']
         ff = fi.add(fj, axis=0, fill_value=0)
@@ -962,21 +962,21 @@ class CharmmForceField(ForceField):
 
 
 
-     def AngleForce(self,atompropertydata,topologia):
+     def AngleForce(self,atompropertydata,topology):
         ''' Computes CHARMM angle energy.
             Formula: sum K * (aij - a0)**2
         '''
         
         print("CharmmForceField.AngleForce")
-        bi = topologia.angles.set_index('Atom1').join(
+        bi = topology.angles.set_index('Atom1').join(
                 atompropertydata.atoms.set_index('aID')
              )[['anID','x', 'y', 'z']].set_index('anID')
 
-        bj = topologia.angles.set_index('Atom2').join(
+        bj = topology.angles.set_index('Atom2').join(
                 atompropertydata.atoms.set_index('aID')
              )[['anID','x', 'y', 'z']].set_index('anID')
 
-        bk = topologia.angles.set_index('Atom3').join(
+        bk = topology.angles.set_index('Atom3').join(
                 atompropertydata.atoms.set_index('aID')
              )[['anID','x', 'y', 'z']].set_index('anID')
 
@@ -989,7 +989,7 @@ class CharmmForceField(ForceField):
         dot = l1.x * l2.x + l1.y * l2.y + l1.z * l2.z
         angles = np.arccos(dot / (norm1 * norm2))
 
-        coeffs = topologia.angles[['anID','anType']].set_index('anType').join(
+        coeffs = topology.angles[['anID','anType']].set_index('anType').join(
                         self.angleCoeffs.set_index('anType')
                  ).reset_index(drop=True)
 
@@ -1008,9 +1008,9 @@ class CharmmForceField(ForceField):
         w2 = l1.sub(l2.mul(c12 / c22, axis=0),  axis=0).mul(forces / cd, axis=0)
 
         #print(self.angles.columns.values)
-        f1 = w1.join(topologia.angles.set_index('anID'))[['x','y','z','Atom1']].groupby('Atom1').sum()
-        f2 = w1.sub(w2, axis=0).join(topologia.angles.set_index('anID'))[['x','y','z','Atom2']].groupby('Atom2').sum()
-        f3 = w2.join(topologia.angles.set_index('anID'))[['x','y','z','Atom3']].groupby('Atom3').sum()
+        f1 = w1.join(topology.angles.set_index('anID'))[['x','y','z','Atom1']].groupby('Atom1').sum()
+        f2 = w1.sub(w2, axis=0).join(topology.angles.set_index('anID'))[['x','y','z','Atom2']].groupby('Atom2').sum()
+        f3 = w2.join(topology.angles.set_index('anID'))[['x','y','z','Atom3']].groupby('Atom3').sum()
         f1.index.names = ['aID']
         f2.index.names = ['aID']
         f3.index.names = ['aID']
@@ -1020,17 +1020,17 @@ class CharmmForceField(ForceField):
         print("CharmmForceField.AngleForce  END")
         return ff
 
-     def Force(self,atompropertydata,topologia):
+     def Force(self,atompropertydata,topology):
         print("CharmmForceField.Force()")
-        return self.NonBondForce(atompropertydata,topologia).add(
-                self.BondForce(atompropertydata,topologia), axis=0).add(
-                self.AngleForce(atompropertydata,topologia), axis=0)
+        return self.NonBondForce(atompropertydata,topology).add(
+                self.BondForce(atompropertydata,topology), axis=0).add(
+                self.AngleForce(atompropertydata,topology), axis=0)
         
-     def Energy(self,atompropertydata,topologia):
-        return self.NonBondEnergy(atompropertydata,topologia).add(
-                self.BondEnergy(atompropertydata,topologia)).add(
-                self.AngleEnergy(atompropertydata,topologia)).add(
-                self.DihedralsEnergy(atompropertydata,topologia))
+     def Energy(self,atompropertydata,topology):
+        return self.NonBondEnergy(atompropertydata,topology).add(
+                self.BondEnergy(atompropertydata,topology)).add(
+                self.AngleEnergy(atompropertydata,topology)).add(
+                self.DihedralsEnergy(atompropertydata,topology))
 
      class PairCoeffs(LammpsDataFrame):
          def __init__(self,data=None, dtype=None, copy=False):
@@ -1355,11 +1355,11 @@ class LammpsData():
         
         # atom-property sections
         assert isinstance(atoms, Atoms)
-        self.atomproperty = atoms
+        self.atomprop = atoms
         
         # molecular topology sections
         assert isinstance(topology, MolecularTopology)
-        self.topologia = topology
+        self.topology = topology
         
         assert isinstance(region, Region)
         self.region = region
@@ -1411,18 +1411,18 @@ class LammpsData():
                         valid = False
                        
                 #Almacenar toda la data de esa seccion
-                if key == 'Masses': self.atomproperty.masses.add(data)
+                if key == 'Masses': self.atomprop.masses.add(data)
                 elif key == 'Pair Coeffs': self.forceField.pairCoeffs.add(data)
                 elif key == 'Bond Coeffs': self.forceField.bondCoeffs.add(data)
                 elif key == 'Angle Coeffs': self.forceField.angleCoeffs.add(data)                
-                elif key == 'Dihedral Coeffs': self.topologia.dihedralCoeffs.add(data)
+                elif key == 'Dihedral Coeffs': self.topology.dihedralCoeffs.add(data)
                 elif key == 'Improper Coeffs':self.forceField.improperCoeffs.add(data)
-                elif key == 'Atoms': self.atomproperty.atoms.add(data)                
-                elif key == 'Velociteies': self.atomproperty.velocities.add(data)   
-                elif key == 'Bonds': self.topologia.bonds.add(data)
-                elif key == 'Angles': self.topologia.angles.add(data)                
-                elif key == 'Dihedrals': self.topologia.dihedrals.add(data)
-                elif key == 'Impropers':self.topologia.impropers.add(data)                
+                elif key == 'Atoms': self.atomprop.atoms.add(data)                
+                elif key == 'Velociteies': self.atomprop.velocities.add(data)   
+                elif key == 'Bonds': self.topology.bonds.add(data)
+                elif key == 'Angles': self.topology.angles.add(data)                
+                elif key == 'Dihedrals': self.topology.dihedrals.add(data)
+                elif key == 'Impropers':self.topology.impropers.add(data)                
               
         arch.close()                
            
@@ -1432,16 +1432,16 @@ class LammpsData():
         #print("loadNAMDdata=",charmm.psf.dihedrals)
         
         #AtomPropertyData
-        #if not isinstance(self.atomproperty, AtomsFull): self.atomproperty = AtomsFull()
-        self.atomproperty.setFromNAMD(charmm)
+        #if not isinstance(self.atomprop, AtomsFull): self.atomprop = AtomsFull()
+        self.atomprop.setFromNAMD(charmm)
         
         # MolecularTopologyData
-        #self.topologia = MolecularTopologyData()
-        self.topologia.setFromNAMD(charmm)
+        #self.topology = MolecularTopologyData()
+        self.topology.setFromNAMD(charmm)
        
         # CharmmForceField
         #self.forceField = CharmmForceField()
-        self.forceField.setFromNAMD(charmm, self.atomproperty,self.topologia)
+        self.forceField.setFromNAMD(charmm, self.atomprop,self.topology)
         
         # MolecularTopologyData
         #self.region = Box()
@@ -1480,7 +1480,7 @@ class LammpsData():
         overview_section = '{0:>12}  atoms\n{1:>12}  bonds\n{2:>12}  angles\n{3:>12}  dihedrals\n{4:>12}  impropers\n\n{5:>12}  atom types\n' \
                            '{6:>12}  bond types\n{7:>12}  angle types\n{8:>12}  dihedral types\n{9:>12}  improper types\n\n' \
                            .format( \
-                                len(self.atomproperty.atoms), len(self.topologia.bonds), len(self.topologia.angles), len(self.topologia.dihedrals), len(self.topologia.impropers), len(self.atomproperty.masses), \
+                                len(self.atomprop.atoms), len(self.topology.bonds), len(self.topology.angles), len(self.topology.dihedrals), len(self.topology.impropers), len(self.atomprop.masses), \
                                 len(self.forceField.bondCoeffs), len(self.forceField.angleCoeffs), len(self.forceField.dihedralCoeffs), len(self.forceField.improperCoeffs)) 
 
         try:
@@ -1490,9 +1490,9 @@ class LammpsData():
                            ' '.join(maxminstr[4:])  + ' zlo zhi\n'
         except:
             # Improve and ask from where we get this data
-            box_section =  ' ' + str(self.atomproperty.atoms['x'].min()-2) + ' ' + str(self.atomproperty.atoms['x'].max()+2) + ' xlo xhi\n' + \
-                           ' ' + str(self.atomproperty.atoms['y'].min()-2) + ' ' + str(self.atomproperty.atoms['y'].max()+2) + ' ylo yhi\n' + \
-                           ' ' + str(self.atomproperty.atoms['z'].min()-2) + ' ' + str(self.atomproperty.atoms['z'].max()+2) + ' zlo zhi\n'   
+            box_section =  ' ' + str(self.atomprop.atoms['x'].min()-2) + ' ' + str(self.atomprop.atoms['x'].max()+2) + ' xlo xhi\n' + \
+                           ' ' + str(self.atomprop.atoms['y'].min()-2) + ' ' + str(self.atomprop.atoms['y'].max()+2) + ' ylo yhi\n' + \
+                           ' ' + str(self.atomprop.atoms['z'].min()-2) + ' ' + str(self.atomprop.atoms['z'].max()+2) + ' zlo zhi\n'   
                        
         # Header
         cfile.write("LAMMPS Description\n\n")
@@ -1500,9 +1500,9 @@ class LammpsData():
 
 
         #Masses
-        if len(self.atomproperty.masses) > 0:
+        if len(self.atomprop.masses) > 0:
             cfile.write('\nMasses\n\n')
-            cfile.write(self.atomproperty.masses.to_string(index=False, columns=self.atomproperty.masses.columns, header=False))
+            cfile.write(self.atomprop.masses.to_string(index=False, columns=self.atomprop.masses.columns, header=False))
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No atom mass values to write. Simulation unlikely to run with this file.")
@@ -1558,51 +1558,51 @@ class LammpsData():
 
         #Atoms
         cfile.write('\nAtoms\n\n') 
-        #cfile.write(self.atomproperty.atoms.to_string(index=False, columns=self.atomproperty.atoms.columns, header=False))
-        cfile.write(self.atomproperty.atoms.to_string(index=False, columns=self.atomproperty.atoms.columns, header=False))
+        #cfile.write(self.atomprop.atoms.to_string(index=False, columns=self.atomprop.atoms.columns, header=False))
+        cfile.write(self.atomprop.atoms.to_string(index=False, columns=self.atomprop.atoms.columns, header=False))
         cfile.write("\n")
 
 
         #Velocities
-        if len(self.atomproperty.velocities) > 0:
+        if len(self.atomprop.velocities) > 0:
             cfile.write('\nVelocities\n\n')
-            cfile.write(self.atomproperty.velocities.to_string(index=False, columns=self.atomproperty.velocities.columns, header=False))        
+            cfile.write(self.atomprop.velocities.to_string(index=False, columns=self.atomprop.velocities.columns, header=False))        
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No velocities to write.\n")
 
 
         #Bonds
-        if len(self.topologia.bonds) > 0:
+        if len(self.topology.bonds) > 0:
             cfile.write('\nBonds\n\n')
-            cfile.write(self.topologia.bonds.to_string(index=False, columns=self.topologia.bonds.columns, header=False))
+            cfile.write(self.topology.bonds.to_string(index=False, columns=self.topology.bonds.columns, header=False))
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No bonds to write.\n")
 
         
         #Angles
-        if len(self.topologia.angles) > 0:
+        if len(self.topology.angles) > 0:
             cfile.write('\nAngles\n\n') 
-            cfile.write(self.topologia.angles.to_string(index=False, columns=self.topologia.angles.columns, header=False))
+            cfile.write(self.topology.angles.to_string(index=False, columns=self.topology.angles.columns, header=False))
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No angles to write.\n")
 
 
         #Dihedrals
-        if len(self.topologia.dihedrals) > 0:
+        if len(self.topology.dihedrals) > 0:
             cfile.write('\nDihedrals\n\n') 
-            cfile.write(self.topologia.dihedrals.to_string(index=False, columns=self.topologia.dihedrals.columns, header=False))
+            cfile.write(self.topology.dihedrals.to_string(index=False, columns=self.topology.dihedrals.columns, header=False))
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No dihedrals to write.\n")
 
 
         #Impropers
-        if len(self.topologia.impropers) > 0:
+        if len(self.topology.impropers) > 0:
             cfile.write('\nImpropers\n\n') 
-            cfile.write(self.topologia.impropers.to_string(index=False, columns=self.topologia.impropers.columns, header=False))
+            cfile.write(self.topology.impropers.to_string(index=False, columns=self.topology.impropers.columns, header=False))
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No impropers to write.\n")
@@ -1613,7 +1613,7 @@ class LammpsData():
             para poder printiar los datos.'''
         
         print("LammpsData.Force()")
-        self.forceField.Force(self.atomproperty,self.topologia)
+        self.forceField.Force(self.atomprop,self.topology)
 
     def append(self,other):
         '''Une dos objetos de LammpsData, sus dataframes individuales'''
@@ -1624,14 +1624,14 @@ class LammpsData():
         self.forceField.improperCoeffs = self.forceField.improperCoeffs.append(other.forceField.improperCoeffs)
         self.forceField.pairCoeffs = self.forceField.pairCoeffs.append(other.forceField.pairCoeffs)
         #Oh YEaSH
-        self.atomproperty.atoms = self.atomproperty.atoms.append(other.atomproperty.atoms)
-        self.atomproperty.velocities = self.atomproperty.velocities.append(other.atomproperty.velocities)
-        self.atomproperty.masses = self.atomproperty.masses.append(other.atomproperty.masses)
+        self.atomprop.atoms = self.atomprop.atoms.append(other.atomprop.atoms)
+        self.atomprop.velocities = self.atomprop.velocities.append(other.atomprop.velocities)
+        self.atomprop.masses = self.atomprop.masses.append(other.atomprop.masses)
         #yeyeyeye
-        self.topologia.angles = self.topologia.angles.append(other.topologia.angles)
-        self.topologia.bonds = self.topologia.bonds.append(other.topologia.bonds)
-        self.topologia.dihedrals = self.topologia.dihedrals.append(other.topologia.dihedrals)
-        self.topologia.impropers = self.topologtopologiaia.impropers.append(other.topologia.impropers)
+        self.topology.angles = self.topology.angles.append(other.topology.angles)
+        self.topology.bonds = self.topology.bonds.append(other.topology.bonds)
+        self.topology.dihedrals = self.topology.dihedrals.append(other.topology.dihedrals)
+        self.topology.impropers = self.topologtopologiaia.impropers.append(other.topology.impropers)
 
         
     def copy(self):#modifica
@@ -1643,14 +1643,14 @@ class LammpsData():
         ld.forceField.improperCoeffs = self.forceField.improperCoeffs.copy()
         ld.forceField.pairCoeffs = self.forceField.pairCoeffs.copy()
         # OH YEAHHH
-        ld.atomproperty.atoms = self.atomproperty.atoms.copy()
-        ld.atomproperty.velocities = self.atomproperty.velocities.copy()
-        ld.atomproperty.masses = self.atomproperty.masses.copy()
+        ld.atomprop.atoms = self.atomprop.atoms.copy()
+        ld.atomprop.velocities = self.atomprop.velocities.copy()
+        ld.atomprop.masses = self.atomprop.masses.copy()
         # OH YEAHHH
-        ld.topologia.angles = self.topologia.angles.copy()
-        ld.topologia.bonds = self.topologia.btopologiaonds.copy()
-        ld.topologia.dihedrals = self.topologia.dihedrals.copy()
-        ld.topologia.impropers = self.topologia.impropers.copy()
+        ld.topology.angles = self.topology.angles.copy()
+        ld.topology.bonds = self.topology.btopologiaonds.copy()
+        ld.topology.dihedrals = self.topology.dihedrals.copy()
+        ld.topology.impropers = self.topology.impropers.copy()
         
         return ld
     
@@ -1659,81 +1659,74 @@ class LammpsData():
         
         # AtompropertyData 
         #atoms
-        self.atomproperty.atoms.drop(self.atomproperty.atoms[self.atomproperty.atoms.aType == atomNumber].index, inplace=True)#elimina el atomo indicado
-        self.atomproperty.atoms.reset_index(inplace=True)#reset el index, crea una copia del index
-        self.atomproperty.atoms.drop(['index','aID'],axis = 1, inplace=True)#elimina la copia y la columna afectada
-        self.atomproperty.atoms.insert(0, "aID", [*range(1,len(self.atomproperty.atoms)+1)], True)#inserta columna nueva en la afectada("aID")
+        self.atomprop.atoms.drop(self.atomprop.atoms[self.atomprop.atoms.aType == atomNumber].index, inplace=True)#elimina el atomo indicado
+        self.atomprop.atoms.reset_index(inplace=True)#reset el index, crea una copia del index
+        self.atomprop.atoms.drop(['index','aID'],axis = 1, inplace=True)#elimina la copia y la columna afectada
+        self.atomprop.atoms.insert(0, "aID", [*range(1,len(self.atomprop.atoms)+1)], True)#inserta columna nueva en la afectada("aID")
         #velocity
-        self.atomproperty.velocities.drop(self.atomproperty.velocities.tail(166-len(self.atomproperty.atoms)).index,inplace = True) #elimina velocidades dependiendo a los atomos eliminados
+        self.atomprop.velocities.drop(self.atomprop.velocities.tail(166-len(self.atomprop.atoms)).index,inplace = True) #elimina velocidades dependiendo a los atomos eliminados
         #masses
          #chequea
          
         #TopologiaData
         #bonds
         #Cambio para que busque en los Atomos enves de Type
-        self.topologia.bonds = self.topologia.bonds.ix[self.topologia.bonds['Atom1'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
-        self.topologia.bonds = self.topologia.bonds.ix[self.topologia.bonds['Atom2'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
-        self.topologia.bonds  = self.topologia.bonds.reset_index(drop=True)#resetea el indice y elimina la copia
-        self.topologia.bonds['bID'] = [i for i in range(1,len(self.topologia.bonds)+1 )]#resetea el indice en la columna 'bType'
+        self.topology.bonds = self.topology.bonds.ix[self.topology.bonds['Atom1'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
+        self.topology.bonds = self.topology.bonds.ix[self.topology.bonds['Atom2'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
+        self.topology.bonds  = self.topology.bonds.reset_index(drop=True)#resetea el indice y elimina la copia
+        self.topology.bonds['bID'] = [i for i in range(1,len(self.topology.bonds)+1 )]#resetea el indice en la columna 'bType'
         #angles
-        self.topologia.angles = self.topologia.angles.ix[self.topologia.angles['Atom3'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
-        self.topologia.bonds = self.topologia.bonds.ix[self.topologia.bonds['Atom1'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
-        self.topologia.bonds = self.topologia.bonds.ix[self.topologia.bonds['Atom2'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
-        self.topologia.angles  = self.topologia.angles.reset_index(drop=True)#resetea el indice y elimina la copia
-        self.topologia.angles['anID'] = [i for i in range(1,len(self.topologia.angles)+1 )]#resetea el indice en la columna 'anType'
+        self.topology.angles = self.topology.angles.ix[self.topology.angles['Atom3'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
+        self.topology.bonds = self.topology.bonds.ix[self.topology.bonds['Atom1'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
+        self.topology.bonds = self.topology.bonds.ix[self.topology.bonds['Atom2'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
+        self.topology.angles  = self.topology.angles.reset_index(drop=True)#resetea el indice y elimina la copia
+        self.topology.angles['anID'] = [i for i in range(1,len(self.topology.angles)+1 )]#resetea el indice en la columna 'anType'
         #improper######modifica desde aqui
-        self.topologia.impropers = self.topologia.impropers.ix[self.topologia.impropers['iType'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
-        self.topologia.impropers  = self.topologia.impropers.reset_index(drop=True)#resetea el indice y elimina la copia
-        self.topologia.impropers['iID'] = [i for i in range(1,len(self.topologia.impropers)+1 )]#resetea el indice en la columna 'iType'
+        self.topology.impropers = self.topology.impropers.ix[self.topology.impropers['iType'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
+        self.topology.impropers  = self.topology.impropers.reset_index(drop=True)#resetea el indice y elimina la copia
+        self.topology.impropers['iID'] = [i for i in range(1,len(self.topology.impropers)+1 )]#resetea el indice en la columna 'iType'
         #dihedral
-        self.topologia.dihedrals = self.topologia.dihedrals.ix[self.topologia.dihedrals['dType'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
-        self.topologia.dihedrals  = self.topologia.dihedrals.reset_index(drop=True)#resetea el indice y elimina la copia
-        self.topologia.dihedrals['dID'] = [i for i in range(1,len(self.topologia.dihedrals)+1 )]#resetea el indice en la columna 'dType'
-        
-        #CharmmForceField 
-        #self.forceField.angleCoeffs
-            #Falta
-        
-        
-        '''
-        #forceFieldSectio composi
-        self.forceField = CharmmForceField()
-        # molecular topology sections
-        self.topologia = MolecularTopologyData()
-        '''
+        self.topology.dihedrals = self.topology.dihedrals.ix[self.topology.dihedrals['dType'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
+        self.topology.dihedrals  = self.topology.dihedrals.reset_index(drop=True)#resetea el indice y elimina la copia
+        self.topology.dihedrals['dID'] = [i for i in range(1,len(self.topology.dihedrals)+1 )]#resetea el indice en la columna 'dType'
         
         
     def bondLength(self,bondsID=set()):
         ''' Calculates the length of the bond between two atoms '''
-        #print("\nBonds Table\n", self.topologia.bonds,"\nResults\n")
+        #print("\nBonds Table\n", self.topology.bonds,"\nResults\n")
         #manera mas limpia de escribirlo (hasta ahora)
         if set(bondsID) == set(): 
-            bondsID = set(self.topologia.bonds.bID)
-        coordinates = self.atomproperty.atoms[['aID', 'x', 'y', 'z']].set_index('aID')
-        select = self.topologia.bonds.loc[self.topologia.bonds['bID'].isin(bondsID)].copy()
+            bondsID = set(self.topology.bonds.bID)
+        coordinates = self.atomprop.atoms[['aID', 'x', 'y', 'z']].set_index('aID')
+        select = self.topology.bonds.loc[self.topology.bonds['bID'].isin(bondsID)].copy()
         a1 = select.join(coordinates, on='Atom1')[['x','y','z']]
         a2 = select.join(coordinates, on='Atom2')[['x','y','z']]
         #reset_index para iterar por los valores al combinar
         select['dist'] = (np.sqrt(((a1-a2)**2).sum(axis=1)))#.reset_index(drop=True)
-        return select[['bID','bType','dist']]#.set_index('bID')
+        return select[['bType','dist']]#.set_index('bID')
 
 
     def meanBondLengthByType(self):
         bLengths = self.bondLength()
-        bLengths['bType'] = self.topologia.bonds.bType
+        bLengths['bType'] = self.topology.bonds.bType
         return bLengths.groupby('bType').mean()
+
+    def describeBonds(self):
+        ''' return the descriptive statistics by bond type.
+        '''
+        return self.bondLength().groupby('bType').describe()
 
 
     def angleLength(self,atomIds=set()):
         '''Calculates the length of the angles between 3 atoms'''
         if set(atomIds) == set(): 
-            atomIds = set(self.topologia.angles.anID)        
-        coordinates = self.atomproperty.atoms[['aID', 'x', 'y', 'z']].set_index('aID')
-        selection = self.topologia.angles.loc[self.topologia.angles['anID'].isin(atomIds)].copy() 
+            atomIds = set(self.topology.angles.anID)        
+        coordinates = self.atomprop.atoms[['aID', 'x', 'y', 'z']].set_index('aID')
+        selection = self.topology.angles.loc[self.topology.angles['anID'].isin(atomIds)].copy() 
         a1 = selection.join(coordinates, on='Atom1')[['x','y','z']]
         a2 = selection.join(coordinates, on='Atom2')[['x','y','z']]
         a3 = selection.join(coordinates, on='Atom3')[['x','y','z']]
-        #print(self.topologia.angles.loc[self.topologia.angles['Atom3']==3])
+        #print(self.topology.angles.loc[self.topology.angles['Atom3']==3])
         #print("angleLength: " , a1,"\n",a2,"\n",a3)
         
         #vectores de ambos lados 
@@ -1756,7 +1749,7 @@ class LammpsData():
     
     def meanAngleLengthByType(self):
         anLengths = self.angleLength()
-        anLengths['anType'] = self.topologia.angles.anType
+        anLengths['anType'] = self.topology.angles.anType
         return anLengths.groupby('anType').mean()
     
     ''' Esto crea información redundante con riesgo de que se vuelva inconsistente
