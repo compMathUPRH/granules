@@ -1703,10 +1703,10 @@ class LammpsData():
         a2 = select.join(coordinates, on='Atom2')[['x','y','z']]
         #reset_index para iterar por los valores al combinar
         select['dist'] = (np.sqrt(((a1-a2)**2).sum(axis=1)))#.reset_index(drop=True)
-        return select[['bType','dist']]#.set_index('bID')
-
+        return select[['bID', 'bType','dist']].set_index('bID')
 
     def meanBondLengthByType(self):
+        '''Calculates the average distance of the Bond types'''
         bLengths = self.bondLength()
         bLengths['bType'] = self.topology.bonds.bType
         return bLengths.groupby('bType').mean()
@@ -1715,7 +1715,6 @@ class LammpsData():
         ''' return the descriptive statistics by bond type.
         '''
         return self.bondLength().groupby('bType').describe()
-
 
     def angleLength(self,atomIds=set()):
         '''Calculates the length of the angles between 3 atoms'''
@@ -1745,12 +1744,19 @@ class LammpsData():
         product = d/(absolV1*absolV2)
         #print("anglelength return:", np.arccos(product))
         selection['dist'] = np.arccos(product).reset_index(drop=True)
-        return selection[['anID','anType','dist']]
+        return selection[['anType','dist']]
     
     def meanAngleLengthByType(self):
+        '''Calculates the average distance of the angles types'''
         anLengths = self.angleLength()
         anLengths['anType'] = self.topology.angles.anType
         return anLengths.groupby('anType').mean()
+    
+    def describeAngle(self):
+        ''' return the descriptive statistics by angle type.
+        '''
+        return self.angleLength().groupby('anType').describe()
+
     
     ''' Esto crea información redundante con riesgo de que se vuelva inconsistente
     def combineLength(self,bondTable,angleTable):
