@@ -126,7 +126,7 @@ class InFileGenerator():
 #===================================================================
 #Clases temporeras que hereda de panda,las subclases de sus clases originales(nombre)
 #   se pasaron a estas nuevas clases.
-
+"""
 class Atoms():#cambiado LammpsDataFrame
     def __init__(self):
         pass
@@ -138,12 +138,43 @@ class MolecularTopology():
 class ForceField():
     def __init__(self):
          pass
+"""
 #===================================================================
          
 class LammpsDataFrame(pd.DataFrame):
+    '''
+    @property
+    def _constructor(self):
+        return LammpsDataFrame
+    '''
+    
+    @property
+    def _constructor(self):
+        '''In absence of this method many operations would return a DataFrame, not an type(self)
+        '''
+        #print("AtomsDF._constructor", type(self))
+        return type(self)
+        #return AtomsFull.atomsDF
+
+
+    def __getitem__(self, key):
+        ''' Selecting columns no longer produces an AtomDF. It will return a
+        DataFrame or Slice'''
+        return pd.DataFrame(data=self)[key]
+
 
     def add(self, data):
-    
+        print("CUIDADO: Llegó a LammpsDataFrame.add(). Esta tiene que ser sustituida.")
+        raise Exception("CUIDADO: Llegó a LammpsDataFrame.add(). Esta tiene que ser sustituida.")
+        
+    def append2(self, data):
+        '''
+        This method probably isn't necessary. Should be removed.
+        '''
+        
+        print("CUIDADO: Llegó a LammpsDataFrame.append(). Eso no debería pasar.")
+        raise Exception("CUIDADO: Llegó a LammpsDataFrame.append(). Esta tiene que ser sustituida.")
+        
         #Almacenar numeros de columnas
         columns = list(self.columns)  
         
@@ -151,7 +182,8 @@ class LammpsDataFrame(pd.DataFrame):
         dtable = {col:[] for col in columns}
         
         #Rellenar lista de listas con valor nulo '0' de ser necesario
-        dif = len(self.columns) - len(data[0])
+        print("LammpsDataFrame.append.data{}\n{}".format(type(data),data))
+        dif = len(self.columns) - len(data.columns)
         if dif > 0: 
             for i in range(len(data)): 
                 for j in range(dif):
@@ -177,7 +209,7 @@ class LammpsDataFrame(pd.DataFrame):
 
 #===================================================================
 
-class AtomsFull(Atoms):
+class AtomsFull:
     def __init__(self):
         
         # atom-property sections
@@ -188,7 +220,7 @@ class AtomsFull(Atoms):
     def setFromNAMD(self,charmm): 
         '''Llama a la funcion setFromNAMD() de las clases de la clase AtomPropertyData,
             asignadas en los atributo.'''
-            
+        
         self.atoms.setFromNAMD(charmm)
         self.velocities.setToZero(self.atoms)
         self.masses.setFromNAMD(charmm.psf.atoms,self.atoms)
@@ -203,13 +235,13 @@ class AtomsFull(Atoms):
         return coordMass.mean()
 
     class AtomsDF(LammpsDataFrame):
-        def __init__(self,data=None, dtype=None, copy=False):
-            dtypes = {'aID':[0], 'Mol_ID':[0], 'aType':[0], 'Q':[0.0], 
-                      'x':[0.0], 'y':[0.0], 'z':[0.0], 'Nx':[0], 'Ny':[0], 'Nz':[0]}   
-            super(LammpsDataFrame, self).__init__(data=dtypes, copy=copy, columns=['aID', 'Mol_ID', 'aType', 'Q', 
-                      'x', 'y', 'z', 'Nx', 'Ny', 'Nz'])
-            super(LammpsDataFrame, self).__init__(self.drop([0]))
-            
+        ''' This subclass of pd.DataFrame will always have the columns specified
+            at method __init__. Slicing this table will return DataFrame or Slice.
+        '''
+        def __init__(self, *args, **kwargs):
+            column_names = ['aID', 'Mol_ID', 'aType', 'Q', 'x', 'y', 'z', 'Nx', 'Ny', 'Nz']
+            super(AtomsFull.AtomsDF,self).__init__(*args, **dict(kwargs, columns=column_names))
+
         def setFromNAMD(self, charmm):
             ''' Extracts info from ATOMS object of a PSF object into self.
     
@@ -218,22 +250,16 @@ class AtomsFull(Atoms):
             charmm : NAMDdata
                 NAMDdata object
             '''
-    
             charmmTypeToInt = detectAtomTypes(charmm)
             #print(charmmTypeToInt)
             #print(atom_types['Type'].map(charmmTypeToInt))
     
             # extract info from charmm
             sel_psf     = charmm.psf.atoms[['ID', 'Type', 'Charge']].set_index('ID')
-            #print(sel_psf)
             sel_pdb     = charmm.pdb[['ID','x','y','z']].set_index('ID')
-            #print(sel_pdb)
             sel         = sel_pdb.join(sel_psf)
-            #print(sel)        
             sel['aType'] = sel_psf['Type'].map(charmmTypeToInt)
-            #print(sel_pdb[charmm.pdb['ID']==0])
             sel.reset_index(inplace=True)
-            #print(sel)        
             sel         .rename(columns={"Charge":"Q",'ID':'aID'}, inplace=True)
     
             # add remining columns
@@ -242,15 +268,14 @@ class AtomsFull(Atoms):
             sel['Ny']     = np.zeros((len(sel), 1))
             sel['Nz']     = np.zeros((len(sel), 1))
             sel['ID']     = np.arange(1, len(sel)+1)
-            #print('setFromNAMD:\n', charmmTypeToInt,sel_psf['Type'],sel['aType'])
-            #print('setFromNAMD:\n', charmmTypeToInt,sel_psf.loc[1,'Type'],sel_psf.loc[1,'Type'] in charmmTypeToInt, sel.loc[1,'aType'])
-            #print('\nsetFromNAMD:\n', sel[np.isnan(sel['aType'])])
+
             # rearrange columns
             sel = sel[['aID', 'Mol_ID', 'aType', 'Q', 'x', 'y', 'z', 'Nx', 'Ny', 'Nz']]
             
             #sel.reset_index(inplace=True)
-            #print("sel = ", sel.dtypes)
-            super(LammpsDataFrame, self).__init__(sel.astype({
+            self.__init__(sel)
+
+            self.astype({
                          'Mol_ID' :int,
                          'aType' :int,
                          'Q' :float,
@@ -260,9 +285,8 @@ class AtomsFull(Atoms):
                          'Nx' :int,
                          'Ny' :int,
                          'Nz' : int
-                        }))
-            #print(self.dtypes)
-        
+                        })
+       
         def center(self):
             return self[['x', 'y', 'z']].mean()
     
@@ -302,12 +326,21 @@ class AtomsFull(Atoms):
             #print(data)
          
     class MassesDF(LammpsDataFrame):
-        def __init__(self,data=None, dtype=None, copy=False):
-            if data  is None:
-                dtypes = {'aType':[0], 'Mass':[0.0]}
-                super(LammpsDataFrame, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
-                super(LammpsDataFrame, self).__init__(self.drop([0]))
-     
+        ''' This subclass of pd.DataFrame will always have the columns specified
+            at method __init__. Slicing this table will return DataFrame or Slice.
+        '''
+        def __init__(self, *args, **kwargs):
+            column_names = ['aType', 'Mass']
+            super(AtomsFull.MassesDF,self).__init__(*args, **dict(kwargs, columns=column_names))
+        
+        """
+        @property
+        def _constructor(self):
+            '''In absence of this method many operations would return a DataFrame, not an AtomDF
+            '''
+            return AtomsFull.MassesDF
+        """
+        
         def setFromNAMD(self, psf_atoms, atoms):
             ''' Extracts info from ATOMS object of a PSF object into self.
     
@@ -323,24 +356,46 @@ class AtomsFull(Atoms):
             # extract info from charmm and LAMMPS
             sel_psf  = psf_atoms[['ID', 'Mass']].set_index('ID')
             sel_self = atoms[['aID', 'aType']].set_index('aID').copy()
-            sel      = sel_self.join(sel_psf).drop_duplicates().reset_index()
+            sel      = sel_self.join(sel_psf).drop_duplicates()
     
             # rename columns
-            sel      .drop(columns='aID', inplace=True)
-            #sel      .rename(columns={"Type":"mID"}, inplace=True)
+            #sel      .drop(columns='aID', inplace=True)
+            sel.reset_index(drop=True)
             #print(sel.dtypes)
     
-            super(LammpsDataFrame, self).__init__(sel)
+            self.__init__(sel)
+
     
-    
+ 
+        def __getitem__(self, key):
+            ''' Selecting columns no longer produces MassesDF. It will return a
+            DataFrame or Slice'''
+            return pd.DataFrame(data=self)[key]
+
+   
     class VelocitiesDF(LammpsDataFrame):
-        def __init__(self,data=None, dtype=None, copy=False):
-            dtypes = {'vID':[0], 'Vx':[0.0], 'Vy':[0.0], 'Vz':[0.0]}
-            super(LammpsDataFrame, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
-            super(LammpsDataFrame, self).__init__(self.drop([0]))
-       
+        ''' This subclass of pd.DataFrame will always have the columns specified
+            at method __init__. Slicing this table will return DataFrame or Slice.
+        '''
+        def __init__(self, *args, **kwargs):
+            column_names = ['vID', 'Vx', 'Vy', 'Vz']
+            super(AtomsFull.VelocitiesDF,self).__init__(*args, **dict(kwargs, columns=column_names))
+
+        """
+        @property
+        def _constructor(self):
+            '''In absence of this method many operations would return a DataFrame, not an AtomDF
+            '''
+            return AtomsFull.VelocitiesDF
+
+        def __getitem__(self, key):
+            ''' Selecting columns no longer produces an VelocitiesDF. It will return a
+            DataFrame or Slice'''
+            return pd.DataFrame(data=self)[key]
+        """
+
         def setToZero(self, atoms):
-            ''' Sets velocitis of atoms to zero.
+            ''' Sets velocities of atoms to zero.
     
             Parameter
             -----------------
@@ -349,6 +404,7 @@ class AtomsFull(Atoms):
             '''
     
             # extract info from LAMMPS
+            #print("VelocitiesDF.setToZero", type(atoms), atoms)
             sel = atoms[['aID']].copy().rename(columns={'aID':'vID'})
             #sel.rename(columns={'aID':'vID'}, inplace=True)
             sel['Vx']     = np.zeros((len(sel), 1))
@@ -356,10 +412,16 @@ class AtomsFull(Atoms):
             sel['Vz']     = np.zeros((len(sel), 1))
             #print("VelocitiesDF sel = ", sel.dtypes)
     
-            super(LammpsDataFrame, self).__init__(sel)
+            self.__init__(sel)
 
-  
-class MolecularTopologyData(MolecularTopology):
+ 
+        def __getitem__(self, key):
+            ''' Selecting columns no longer produces VelocitiesDF. It will return a
+            DataFrame or Slice'''
+            return pd.DataFrame(data=self)[key]
+
+ 
+class MolecularTopologyData:
     def __init__(self):
         
         # molecular topology sections
@@ -379,11 +441,27 @@ class MolecularTopologyData(MolecularTopology):
         self.impropers.setFromNAMD(charmm)
 
     class AnglesDF(LammpsDataFrame):
-        def __init__(self,data=None, dtype=None, copy=False):
-            dtypes = {'anID':[0], 'anType':[0], 'Atom1':[0], 'Atom2':[0], 'Atom3':[0]}
-            super(MolecularTopologyData.AnglesDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
-            super(MolecularTopologyData.AnglesDF, self).__init__(self.drop([0]))
+        ''' This subclass of pd.DataFrame will always have the columns specified
+            at method __init__. Slicing this table will return DataFrame or Slice.
+        '''
+        def __init__(self, *args, **kwargs):
+            column_names = ['anID', 'anType', 'atom1', 'atom2', 'atom3']
+            super(MolecularTopologyData.AnglesDF,self).__init__(*args, **dict(kwargs, columns=column_names))
+
+        """
+        @property
+        def _constructor(self):
+            '''In absence of this method many operations would return a DataFrame, not an AtomDF
+            '''
+            return MolecularTopologyData.AnglesDF
+
     
+        def __getitem__(self, key):
+            ''' Selecting columns no longer produces an AnglesDF. It will return a
+            DataFrame or Slice'''
+            return pd.DataFrame(data=self)[key]
+        """
+
         def setFromNAMD(self, charmm):
             ''' Extracts info from ATOMS object of a PSF object into self.
     
@@ -419,9 +497,9 @@ class MolecularTopologyData(MolecularTopology):
             angles['ID'] = np.arange(1, len(angles)+1)
             angles['Type'] = angles['atuple'].map(btypeToInt)
             angles.drop(columns=['atuple'], inplace=True)
-            angles['Atom1'] = charmm.psf.angles.copy()['atom1']
-            angles['Atom2'] = charmm.psf.angles.copy()['atom2']
-            angles['Atom3'] = charmm.psf.angles.copy()['atom3']
+            angles['atom1'] = charmm.psf.angles.copy()['atom1']
+            angles['atom2'] = charmm.psf.angles.copy()['atom2']
+            angles['atom3'] = charmm.psf.angles.copy()['atom3']
     
             angles.rename(columns={'ID':'anID', 'Type':'anType'}, inplace=True)
             #print(angles)
@@ -430,11 +508,14 @@ class MolecularTopologyData(MolecularTopology):
             #print(self.dtypes)
     
     class BondsDF(LammpsDataFrame):
-        def __init__(self,data=None, dtype=None, copy=False):
-            dtypes = {'bID':[0], 'bType':[0], 'Atom1':[0], 'Atom2':[0]}     
-            super(MolecularTopologyData.BondsDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
-            super(MolecularTopologyData.BondsDF, self).__init__(self.drop([0]))
-    
+        ''' This subclass of pd.DataFrame will always have the columns specified
+            at method __init__. Slicing this table will return DataFrame or Slice.
+        '''
+        def __init__(self, *args, **kwargs):
+            column_names = ['bID', 'bType', 'atom1', 'atom2']
+            super(MolecularTopologyData.BondsDF,self).__init__(*args, **dict(kwargs, columns=column_names))
+
+
         def selectTypes(self, bondType):
             return self[self.bType == bondType].bID
     
@@ -470,8 +551,8 @@ class MolecularTopologyData(MolecularTopology):
             bonds['ID'] = np.arange(1, len(bonds)+1)
             bonds['Type'] = bonds['atuple'].map(btypeToInt)
             bonds.drop(columns=['atuple'], inplace=True)
-            bonds['Atom1'] = charmm.psf.bonds.copy()['atom1']
-            bonds['Atom2'] = charmm.psf.bonds.copy()['atom2']
+            bonds['atom1'] = charmm.psf.bonds.copy()['atom1']
+            bonds['atom2'] = charmm.psf.bonds.copy()['atom2']
     
             bonds.rename(columns={'ID':'bID', 'Type':'bType'}, inplace=True)
     
@@ -480,11 +561,20 @@ class MolecularTopologyData(MolecularTopology):
     
            
     class DihedralsDF(LammpsDataFrame):
+        ''' This subclass of pd.DataFrame will always have the columns specified
+            at method __init__. Slicing this table will return DataFrame or Slice.
+        '''
+        def __init__(self, *args, **kwargs):
+            column_names = ['dID', 'dType', 'atom1', 'atom2', 'atom3', 'atom4']
+            super(MolecularTopologyData.DihedralsDF,self).__init__(*args, **dict(kwargs, columns=column_names))
+
+        """
         def __init__(self,data=None, dtype=None, copy=False):
             dtypes = {'dID':[0], 'dType':[0], 'atom1':[0], 'atom2':[0], 'atom3':[0], 'atom4':[0]}
             super(MolecularTopologyData.DihedralsDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
             super(MolecularTopologyData.DihedralsDF, self).__init__(self.drop([0]))
-    
+        """
+        
         def setFromNAMD(self, charmm):
             ''' Extracts info from ATOMS object of a PSF object into self.
     
@@ -522,10 +612,10 @@ class MolecularTopologyData(MolecularTopology):
             dihes['ID'] = np.arange(1, len(dihes)+1)
             dihes['Type'] = dihes['atuple'].map(btypeToInt)
             dihes.drop(columns=['atuple'], inplace=True)
-            dihes['Atom1'] = charmm.psf.dihedrals.copy()['atom1']
-            dihes['Atom2'] = charmm.psf.dihedrals.copy()['atom2']
-            dihes['Atom3'] = charmm.psf.dihedrals.copy()['atom3']
-            dihes['Atom4'] = charmm.psf.dihedrals.copy()['atom4']
+            dihes['atom1'] = charmm.psf.dihedrals.copy()['atom1']
+            dihes['atom2'] = charmm.psf.dihedrals.copy()['atom2']
+            dihes['atom3'] = charmm.psf.dihedrals.copy()['atom3']
+            dihes['atom4'] = charmm.psf.dihedrals.copy()['atom4']
     
             dihes.rename(columns={'ID':'dID', 'Type':'dType'}, inplace=True)
             #print(dihes)
@@ -535,11 +625,20 @@ class MolecularTopologyData(MolecularTopology):
     
     
     class ImpropersDF(LammpsDataFrame):
+        ''' This subclass of pd.DataFrame will always have the columns specified
+            at method __init__. Slicing this table will return DataFrame or Slice.
+        '''
+        def __init__(self, *args, **kwargs):
+            column_names = ['iID', 'iType', 'atom1', 'atom2', 'atom3', 'atom4']
+            super(MolecularTopologyData.ImpropersDF,self).__init__(*args, **dict(kwargs, columns=column_names))
+
+        """
         def __init__(self,data=None, dtype=None, copy=False):
             dtypes = {'iID':[0], 'iType':[0], 'atom1':[0], 'atom2':[0], 'atom3':[0], 'atom4':[0]}
             super(MolecularTopologyData.ImpropersDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
             super(MolecularTopologyData.ImpropersDF, self).__init__(self.drop([0]))
-    
+        """
+        
         def setFromNAMD(self, charmm):
             ''' Extracts info from ATOMS object of a PSF object into self.
     
@@ -576,10 +675,10 @@ class MolecularTopologyData(MolecularTopology):
             impros['ID'] = np.arange(1, len(impros)+1)
             impros['Type'] = impros['atuple'].map(btypeToInt)
             impros.drop(columns=['atuple'], inplace=True)
-            impros['Atom1'] = charmm.psf.impropers.copy()['atom1']
-            impros['Atom2'] = charmm.psf.impropers.copy()['atom2']
-            impros['Atom3'] = charmm.psf.impropers.copy()['atom3']
-            impros['Atom4'] = charmm.psf.impropers.copy()['atom4']
+            impros['atom1'] = charmm.psf.impropers.copy()['atom1']
+            impros['atom2'] = charmm.psf.impropers.copy()['atom2']
+            impros['atom3'] = charmm.psf.impropers.copy()['atom3']
+            impros['atom4'] = charmm.psf.impropers.copy()['atom4']
     
             impros.rename(columns={'ID':'iID', 'Type':'iType'}, inplace=True)
             #print(impros)
@@ -589,7 +688,7 @@ class MolecularTopologyData(MolecularTopology):
 
 
 
-class CharmmForceField(ForceField):
+class CharmmForceField:
      def __init__(self):
 
         #force field sections
@@ -658,7 +757,7 @@ class CharmmForceField(ForceField):
         # remove bonded atoms
         atomIds['p'] = list(zip(atomIds.aID_x, atomIds.aID_y))
         bonds = topology.bonds.copy()
-        bonds['p'] = list(zip(bonds.Atom1, bonds.Atom2))
+        bonds['p'] = list(zip(bonds.atom1, bonds.atom2))
         atomIds = atomIds.set_index('p').join(bonds.set_index('p'))
         atomIds = atomIds[atomIds.bID.isna()][['aID_x','aID_y','nbID','rij']].reset_index(drop=True)
         del bonds
@@ -666,7 +765,7 @@ class CharmmForceField(ForceField):
         # remove angled atoms
         atomIds['p'] = list(zip(atomIds.aID_x, atomIds.aID_y))
         angles = topology.angles.copy()
-        angles['p'] = list(zip(angles.Atom1, angles.Atom3))
+        angles['p'] = list(zip(angles.atom1, angles.atom3))
         atomIds = atomIds.set_index('p').join(angles.set_index('p'))
         atomIds = atomIds[atomIds.anID.isna()][['aID_x','aID_y','nbID','rij']].reset_index(drop=True)
         del angles
@@ -716,11 +815,11 @@ class CharmmForceField(ForceField):
 
             Formula: sum K * (bij - b0)**2
         '''
-        bi = topology.bonds.set_index('Atom1').join(
+        bi = topology.bonds.set_index('atom1').join(
                 atompropertydata.atoms.set_index('aID')
              )[['bID','x', 'y', 'z']].set_index('bID')
 
-        bj = topology.bonds.set_index('Atom2').join(
+        bj = topology.bonds.set_index('atom2').join(
                 atompropertydata.atoms.set_index('aID')
              )[['bID','x', 'y', 'z']].set_index('bID')
 
@@ -741,15 +840,15 @@ class CharmmForceField(ForceField):
             Formula: sum K * (aij - a0)**2
 
         '''
-        bi = topology.angles.set_index('Atom1').join(
+        bi = topology.angles.set_index('atom1').join(
                 atompropertydata.atoms.set_index('aID')
              )[['anID','x', 'y', 'z']].set_index('anID')
 
-        bj = topology.angles.set_index('Atom2').join(
+        bj = topology.angles.set_index('atom2').join(
                 atompropertydata.atoms.set_index('aID')
              )[['anID','x', 'y', 'z']].set_index('anID')
 
-        bk = topology.angles.set_index('Atom3').join(
+        bk = topology.angles.set_index('atom3').join(
                 atompropertydata.atoms.set_index('aID')
              )[['anID','x', 'y', 'z']].set_index('anID')
 
@@ -775,19 +874,19 @@ class CharmmForceField(ForceField):
         ''' Computes CHARMM angle energy.
             Formula: sum K * (1 + cos(n * x - d))
         '''
-        bi = topology.dihedrals.set_index('Atom1').join(
+        bi = topology.dihedrals.set_index('atom1').join(
                 atompropertydata.atoms.set_index('aID')
              )[['dID','x', 'y', 'z']].set_index('dID')
 
-        bj = topology.dihedrals.set_index('Atom2').join(
+        bj = topology.dihedrals.set_index('atom2').join(
                 atompropertydata.atoms.set_index('aID')
              )[['dID','x', 'y', 'z']].set_index('dID')
 
-        bk = topology.dihedrals.set_index('Atom3').join(
+        bk = topology.dihedrals.set_index('atom3').join(
                 atompropertydata.atoms.set_index('aID')
              )[['dID','x', 'y', 'z']].set_index('dID')
 
-        bl = topology.dihedrals.set_index('Atom4').join(
+        bl = topology.dihedrals.set_index('atom4').join(
                 atompropertydata.atoms.set_index('aID')
              )[['dID','x', 'y', 'z']].set_index('dID')
 
@@ -854,7 +953,7 @@ class CharmmForceField(ForceField):
         print('CharmmForceField.NonBondForce: len(atomIds < NONB_CUTOFF)=', len(atomIds))
         atomIds['p'] = list(zip(atomIds.aID_x, atomIds.aID_y))
         bonds = topology.bonds.copy()
-        bonds['p'] = list(zip(bonds.Atom1, bonds.Atom2))
+        bonds['p'] = list(zip(bonds.atom1, bonds.atom2))
         atomIds = atomIds.set_index('p').join(bonds.set_index('p'))
         atomIds = atomIds[atomIds.bID.isna()][['aID_x','aID_y','nbID','rij']].reset_index(drop=True)
         del bonds
@@ -863,7 +962,7 @@ class CharmmForceField(ForceField):
         # remove angled atoms
         atomIds['p'] = list(zip(atomIds.aID_x, atomIds.aID_y))
         angles = topology.angles.copy()
-        angles['p'] = list(zip(angles.Atom1, angles.Atom3))
+        angles['p'] = list(zip(angles.atom1, angles.atom3))
         atomIds = atomIds.set_index('p').join(angles.set_index('p'))
         atomIds = atomIds[atomIds.anID.isna()][['aID_x','aID_y','nbID','rij']].reset_index(drop=True)
         del angles
@@ -929,11 +1028,11 @@ class CharmmForceField(ForceField):
             Formula: sum K * (bij - b0)**2
 
         '''
-        bi = topology.bonds.set_index('Atom1').join(
+        bi = topology.bonds.set_index('atom1').join(
                 atompropertydata.atoms.set_index('aID')
              )[['bID','x', 'y', 'z']].set_index('bID')
 
-        bj = topology.bonds.set_index('Atom2').join(
+        bj = topology.bonds.set_index('atom2').join(
                 atompropertydata.atoms.set_index('aID')
              )[['bID','x', 'y', 'z']].set_index('bID')
 
@@ -952,8 +1051,8 @@ class CharmmForceField(ForceField):
         wi = bij.mul(forces, axis=0)
         #wj = bij.mul(-forces, axis=0)
         
-        fi = wi.join(topology.bonds.set_index('bID'))[['x','y','z','Atom1']].groupby('Atom1').sum()
-        fj = wi.join(topology.bonds.set_index('bID'))[['x','y','z','Atom2']].groupby('Atom2').sum()
+        fi = wi.join(topology.bonds.set_index('bID'))[['x','y','z','atom1']].groupby('atom1').sum()
+        fj = wi.join(topology.bonds.set_index('bID'))[['x','y','z','atom2']].groupby('atom2').sum()
         fi.index.names = ['aID']
         fj.index.names = ['aID']
         ff = fi.add(fj, axis=0, fill_value=0)
@@ -968,15 +1067,15 @@ class CharmmForceField(ForceField):
         '''
         
         print("CharmmForceField.AngleForce")
-        bi = topology.angles.set_index('Atom1').join(
+        bi = topology.angles.set_index('atom1').join(
                 atompropertydata.atoms.set_index('aID')
              )[['anID','x', 'y', 'z']].set_index('anID')
 
-        bj = topology.angles.set_index('Atom2').join(
+        bj = topology.angles.set_index('atom2').join(
                 atompropertydata.atoms.set_index('aID')
              )[['anID','x', 'y', 'z']].set_index('anID')
 
-        bk = topology.angles.set_index('Atom3').join(
+        bk = topology.angles.set_index('atom3').join(
                 atompropertydata.atoms.set_index('aID')
              )[['anID','x', 'y', 'z']].set_index('anID')
 
@@ -1008,9 +1107,9 @@ class CharmmForceField(ForceField):
         w2 = l1.sub(l2.mul(c12 / c22, axis=0),  axis=0).mul(forces / cd, axis=0)
 
         #print(self.angles.columns.values)
-        f1 = w1.join(topology.angles.set_index('anID'))[['x','y','z','Atom1']].groupby('Atom1').sum()
-        f2 = w1.sub(w2, axis=0).join(topology.angles.set_index('anID'))[['x','y','z','Atom2']].groupby('Atom2').sum()
-        f3 = w2.join(topology.angles.set_index('anID'))[['x','y','z','Atom3']].groupby('Atom3').sum()
+        f1 = w1.join(topology.angles.set_index('anID'))[['x','y','z','atom1']].groupby('atom1').sum()
+        f2 = w1.sub(w2, axis=0).join(topology.angles.set_index('anID'))[['x','y','z','atom2']].groupby('atom2').sum()
+        f3 = w2.join(topology.angles.set_index('anID'))[['x','y','z','atom3']].groupby('atom3').sum()
         f1.index.names = ['aID']
         f2.index.names = ['aID']
         f3.index.names = ['aID']
@@ -1054,7 +1153,7 @@ class CharmmForceField(ForceField):
     
             # substitute atoms numbers with charmm atom types
             nonbonded       = atoms[['aID', 'aType']].copy()
-            #print("PairCoeffs nonbonded A \n", nonbonded)
+
             nonbonded['types'] = nonbonded.aID.map(psf_types)
             #print("PairCoeffs nonbonded B \n", nonbonded)
             nonbonded.drop(columns=['aID'], inplace=True)
@@ -1103,12 +1202,14 @@ class CharmmForceField(ForceField):
             #print(psf_types)
     
             # substitute atoms numbers with charmm atom types
-            angles     = angles.copy()
-            angles.Atom1 = angles.Atom1.map(psf_types)
-            angles.Atom2 = angles.Atom2.map(psf_types)
-            angles.Atom3 = angles.Atom3.map(psf_types)
-            angles['atuple'] = list(zip(angles.Atom1, angles.Atom2, angles.Atom3))
-            angles.drop(columns=['anID', 'Atom1', 'Atom2', 'Atom3'], inplace=True)
+            angles     = angles[['anType', 'atom1', 'atom2', 'atom3']]
+            angles.atom1 = angles.atom1.map(psf_types)
+            angles.atom2 = angles.atom2.map(psf_types)
+            angles.atom3 = angles.atom3.map(psf_types)
+            #print("CharmmForceField.AngleCoeffs{}\n{}".format(type(angles), angles))
+            angles['atuple'] = list(zip(angles.atom1, angles.atom2, angles.atom3))
+            #print("CharmmForceField.AngleCoeffs{}\n{}".format(type(angles), angles))
+            angles.drop(columns=['atom1', 'atom2', 'atom3'], inplace=True)
             angles.drop_duplicates(inplace=True)
     
             prmFF = charmm.prm.angles.getCoeffs()
@@ -1137,7 +1238,7 @@ class CharmmForceField(ForceField):
          def __init__(self,data=None, dtype=None, copy=False):
              super(CharmmForceField.BondCoeffs, self).__init__(data=data, columns=['bType','Spring_Constant','Eq_Length'], dtype=dtype, copy=copy)
     
-         def setFromNAMD(self, charmm, bonds):
+         def setFromNAMD(self, charmm, bondsPar):
             ''' Extracts info from PRM and PSF objects into self.
     
             Parameter
@@ -1154,11 +1255,13 @@ class CharmmForceField(ForceField):
             #print(psf_types)
     
             # substitute atoms numbers with charmm atom types
-            bonds     = bonds.copy()
-            bonds.Atom1 = bonds.Atom1.map(psf_types)
-            bonds.Atom2 = bonds.Atom2.map(psf_types)
-            bonds['atuple'] = list(zip(bonds.Atom1, bonds.Atom2))
-            bonds.drop(columns=['bID', 'Atom1', 'Atom2'], inplace=True)
+            #bonds     = bondsPar.copy()
+            bonds     = bondsPar[['bID', 'atom1', 'atom2']]
+            
+            bonds.atom1 = bonds.atom1.map(psf_types)
+            bonds.atom2 = bonds.atom2.map(psf_types)
+            bonds['atuple'] = list(zip(bonds.atom1, bonds.atom2))
+            bonds.drop(columns=['bID', 'atom1', 'atom2'], inplace=True)
             bonds.drop_duplicates(inplace=True)
             #print(bonds)
     
@@ -1182,7 +1285,7 @@ class CharmmForceField(ForceField):
          def __init__(self,data=None, dtype=None, copy=False):
              super(CharmmForceField.DihedralCoeffs, self).__init__(data=data, columns=['dType', 'Kchi', 'n', 'delta'], dtype=dtype, copy=copy)
     
-         def setFromNAMD(self, charmm, dihedrals):
+         def setFromNAMD(self, charmm, dihedrals_par):
             ''' Extracts info from PRM and PSF objects into self.
     
             Parameter
@@ -1199,13 +1302,15 @@ class CharmmForceField(ForceField):
     
             # substitute atoms numbers with charmm atom types
     
-            dihedrals     = dihedrals.copy()
-            dihedrals.Atom1 = dihedrals.Atom1.map(psf_types)
-            dihedrals.Atom2 = dihedrals.Atom2.map(psf_types)
-            dihedrals.Atom3 = dihedrals.Atom3.map(psf_types)
-            dihedrals.Atom4 = dihedrals.Atom4.map(psf_types)
-            dihedrals['atuple'] = list(zip(dihedrals.Atom1, dihedrals.Atom2, dihedrals.Atom3, dihedrals.Atom4))
-            dihedrals.drop(columns=['dID', 'Atom1', 'Atom2', 'Atom3', 'Atom4'], inplace=True)
+            #dihedrals     = dihedrals_par.copy()
+            dihedrals     = dihedrals_par[['atom1', 'atom2', 'atom3', 'atom4']]
+            
+            dihedrals.atom1 = dihedrals.atom1.map(psf_types)
+            dihedrals.atom2 = dihedrals.atom2.map(psf_types)
+            dihedrals.atom3 = dihedrals.atom3.map(psf_types)
+            dihedrals.atom4 = dihedrals.atom4.map(psf_types)
+            dihedrals['atuple'] = list(zip(dihedrals.atom1, dihedrals.atom2, dihedrals.atom3, dihedrals.atom4))
+            dihedrals.drop(columns=['atom1', 'atom2', 'atom3', 'atom4'], inplace=True)
             dihedrals.drop_duplicates(inplace=True)
             #print(dihedrals)
     
@@ -1236,7 +1341,7 @@ class CharmmForceField(ForceField):
          def __init__(self,data=None, dtype=None, copy=False):
              super(CharmmForceField.ImproperCoeffs, self).__init__(data=data, columns=['iType', 'Kchi', 'n', 'delta'], dtype=dtype, copy=copy)
     
-         def setFromNAMD(self, charmm, impropers):
+         def setFromNAMD(self, charmm, impropers_par):
             ''' Extracts info from PRM and PSF objects into self.
     
             Parameter
@@ -1254,13 +1359,14 @@ class CharmmForceField(ForceField):
     
             # substitute atoms numbers with charmm atom types
     
-            impropers     = impropers.copy()
-            impropers.Atom1 = impropers.Atom1.map(psf_types)
-            impropers.Atom2 = impropers.Atom2.map(psf_types)
-            impropers.Atom3 = impropers.Atom3.map(psf_types)
-            impropers.Atom4 = impropers.Atom4.map(psf_types)
-            impropers['atuple'] = list(zip(impropers.Atom1, impropers.Atom2, impropers.Atom3, impropers.Atom4))
-            impropers.drop(columns=['iID', 'Atom1', 'Atom2', 'Atom3', 'Atom4'], inplace=True)
+            #impropers     = impropers_par.copy()
+            impropers     = impropers_par[['atom1', 'atom2', 'atom3', 'atom4']]
+            impropers.atom1 = impropers.atom1.map(psf_types)
+            impropers.atom2 = impropers.atom2.map(psf_types)
+            impropers.atom3 = impropers.atom3.map(psf_types)
+            impropers.atom4 = impropers.atom4.map(psf_types)
+            impropers['atuple'] = list(zip(impropers.atom1, impropers.atom2, impropers.atom3, impropers.atom4))
+            impropers.drop(columns=['atom1', 'atom2', 'atom3', 'atom4'], inplace=True)
             impropers.drop_duplicates(inplace=True)
             #print(impropers)
     
@@ -1322,7 +1428,92 @@ class Region:
     
             return n
 
-         
+# ===========================================
+class Box(Region):
+    '''
+        Defines a box with rectangular anlges (similar to block in LAMMPS)
+    '''
+    def __init__(self, cid=1, maxsMins=None):
+        '''        
+            maxsMins = (xmin, xmax, ymin, ymax, zmin, zmax) or None
+        '''
+        super(Box, self).setId(cid)
+    
+        self.setMinsMaxs(maxsMins)
+    
+    def getMaxsMins(self): return self.maxsMins
+    
+    def getCenter(self):
+        cellBasisVectors = self.getCellBasisVectors()
+        x = (cellBasisVectors[0][0]+cellBasisVectors[1][0]+cellBasisVectors[2][0])/2
+        y = (cellBasisVectors[0][1]+cellBasisVectors[1][1]+cellBasisVectors[2][1])/2
+        z = (cellBasisVectors[0][2]+cellBasisVectors[1][2]+cellBasisVectors[2][2])/2
+        return [x,y,z]
+
+    def getFaces(self):
+        cellBasisVectors = self.getCellBasisVectors()
+        left = self.cellOrigin[0]
+        right = left + cellBasisVectors[0][0]
+        bottom = self.cellOrigin[1]
+        top = bottom + cellBasisVectors[1][1]
+        zNear = self.cellOrigin[2]
+        zFar = zNear + cellBasisVectors[2][2]
+            
+        return [left, right, bottom, top, zNear, zFar]
+
+    def lammpsCommand(self):
+        return "region {:d} style block {}".format(self.id, ' '.join(self.maxsMins))
+    
+    def setFromNAMD(self, charmm):
+        ''' Extracts info from NAMD.data.PBC object thet is assumed to represent a box
+
+        Parameter
+        -----------------
+        charmm : NAMDdata
+            NAMDdata object
+        '''
+        
+        try:
+            self.setMinsMaxs([charmm.pbc.cellOrigin[0],
+                              charmm.pbc.cellBasisVector1[0] + charmm.pbc.cellOrigin[0],
+                              charmm.pbc.cellOrigin[1],
+                              charmm.pbc.cellBasisVector2[1] + charmm.pbc.cellOrigin[1],
+                              charmm.pbc.cellOrigin[2],
+                              charmm.pbc.cellBasisVector3[2] + charmm.pbc.cellOrigin[2]
+                              ])
+        except: 
+            self.setMinsMaxs(None)
+
+    def loadFromDump(self, filename):
+        ''' Extracts info from LAMMPS dump file that is assumed to represent a box
+
+        Parameter
+        -----------------
+        filename : LAMMPS dump file
+        '''
+        dump = open(filename, "r")
+        for linea in dump:
+            if linea[:26] == "ITEM: BOX BOUNDS pp pp pp":
+                mismaxsstr = linea.readline().split(' ').append(
+                        linea.readline().split(' ')).append(
+                        linea.readline().split(' '))
+                self.setMinsMaxs([float(x) for x in mismaxsstr])
+                break
+        dump.close()
+
+    def setMinsMaxs(self, maxsMins):
+        self.maxsMins = maxsMins
+        
+    def volume(self):
+            '''
+            volume
+            '''
+            return (self.maxsMins[1]-self.maxsMins[0]) * \
+                (self.maxsMins[3]-self.maxsMins[2]) * \
+                (self.maxsMins[5]-self.maxsMins[4])
+
+
+
 #===================================================================
 
 #Aqui estaba las clases Df del MolecularTopolyData
@@ -1339,7 +1530,7 @@ class LammpsData():
         See "Format of a data file" section in https://lammps.sandia.gov/doc/read_data.html
     '''
 
-    def __init__(self,file=None, atoms=Atoms(), topology=MolecularTopology(), forceField=ForceField(), region=Region()):
+    def __init__(self,file=None, atoms=AtomsFull(), topology=MolecularTopologyData(), forceField=CharmmForceField(), region=Box()):
 
         '''
         self['Ellipsoids']  = EllipsoidsDF()
@@ -1350,18 +1541,18 @@ class LammpsData():
         '''
         
         #forceFieldSectio composi
-        assert isinstance(forceField, ForceField)
+        assert isinstance(forceField, CharmmForceField)
         self.forceField = forceField
         
         # atom-property sections
-        assert isinstance(atoms, Atoms)
+        assert isinstance(atoms, AtomsFull)
         self.atomprop = atoms
         
         # molecular topology sections
-        assert isinstance(topology, MolecularTopology)
+        assert isinstance(topology, MolecularTopologyData)
         self.topology = topology
         
-        assert isinstance(region, Region)
+        assert isinstance(region, Box)
         self.region = region
         
         if file:
@@ -1461,7 +1652,6 @@ class LammpsData():
 
         @param: mix a Wolffia Mixture object.
         '''
-        from granules.structure.NAMDdata import NAMDdata
 
         charmm = NAMDdata()
         charmm.loadWolffia(wolffia)
@@ -1633,7 +1823,8 @@ class LammpsData():
         self.topology.dihedrals = self.topology.dihedrals.append(other.topology.dihedrals)
         self.topology.impropers = self.topologtopologiaia.impropers.append(other.topology.impropers)
 
-        
+
+    '''        
     def copy(self):#modifica
         ld = LammpsData()
         # OH YEAH
@@ -1648,11 +1839,12 @@ class LammpsData():
         ld.atomprop.masses = self.atomprop.masses.copy()
         # OH YEAHHH
         ld.topology.angles = self.topology.angles.copy()
-        ld.topology.bonds = self.topology.btopologiaonds.copy()
+        ld.topology.bonds = self.topology.bonds.copy()
         ld.topology.dihedrals = self.topology.dihedrals.copy()
         ld.topology.impropers = self.topology.impropers.copy()
         
         return ld
+    '''
     
     def selectAtom(self,atomNumber):
         '''Funcion que elimina un tipo de atomo deseado del dataframe'''
@@ -1671,14 +1863,14 @@ class LammpsData():
         #TopologiaData
         #bonds
         #Cambio para que busque en los Atomos enves de Type
-        self.topology.bonds = self.topology.bonds.ix[self.topology.bonds['Atom1'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
-        self.topology.bonds = self.topology.bonds.ix[self.topology.bonds['Atom2'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
+        self.topology.bonds = self.topology.bonds.ix[self.topology.bonds['atom1'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
+        self.topology.bonds = self.topology.bonds.ix[self.topology.bonds['atom2'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
         self.topology.bonds  = self.topology.bonds.reset_index(drop=True)#resetea el indice y elimina la copia
         self.topology.bonds['bID'] = [i for i in range(1,len(self.topology.bonds)+1 )]#resetea el indice en la columna 'bType'
         #angles
-        self.topology.angles = self.topology.angles.ix[self.topology.angles['Atom3'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
-        self.topology.bonds = self.topology.bonds.ix[self.topology.bonds['Atom1'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
-        self.topology.bonds = self.topology.bonds.ix[self.topology.bonds['Atom2'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
+        self.topology.angles = self.topology.angles.ix[self.topology.angles['atom3'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
+        self.topology.bonds = self.topology.bonds.ix[self.topology.bonds['atom1'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
+        self.topology.bonds = self.topology.bonds.ix[self.topology.bonds['atom2'] != atomNumber ]#devuelve los rows que no contengan el atomNumber
         self.topology.angles  = self.topology.angles.reset_index(drop=True)#resetea el indice y elimina la copia
         self.topology.angles['anID'] = [i for i in range(1,len(self.topology.angles)+1 )]#resetea el indice en la columna 'anType'
         #improper######modifica desde aqui
@@ -1693,14 +1885,17 @@ class LammpsData():
         
     def bondLength(self,bondsID=set()):
         ''' Calculates the length of the bond between two atoms '''
-        #print("\nBonds Table\n", self.topology.bonds,"\nResults\n")
-        #manera mas limpia de escribirlo (hasta ahora)
+
         if set(bondsID) == set(): 
             bondsID = set(self.topology.bonds.bID)
+            
         coordinates = self.atomprop.atoms[['aID', 'x', 'y', 'z']].set_index('aID')
-        select = self.topology.bonds.loc[self.topology.bonds['bID'].isin(bondsID)].copy()
-        a1 = select.join(coordinates, on='Atom1')[['x','y','z']]
-        a2 = select.join(coordinates, on='Atom2')[['x','y','z']]
+        select = self.topology.bonds.loc[self.topology.bonds['bID'].isin(bondsID)][['bID', 'bType','atom1', 'atom2']]
+        #print("bondLength coordinates {}\n{}".format(type(coordinates),coordinates))
+        #print("bondLength select {}\n{}".format(type(select),select))
+        #print("bondLength select.join(coordinates, on='atom1') {}\n{}".format(type(select.join(coordinates, on='atom1')),select.join(coordinates, on='atom1')))
+        a1 = select.join(coordinates, on='atom1')[['x','y','z']]
+        a2 = select.join(coordinates, on='atom2')[['x','y','z']]
         #reset_index para iterar por los valores al combinar
         select['dist'] = (np.sqrt(((a1-a2)**2).sum(axis=1)))#.reset_index(drop=True)
         return select[['bID', 'bType','dist']].set_index('bID')
@@ -1722,10 +1917,10 @@ class LammpsData():
             atomIds = set(self.topology.angles.anID)        
         coordinates = self.atomprop.atoms[['aID', 'x', 'y', 'z']].set_index('aID')
         selection = self.topology.angles.loc[self.topology.angles['anID'].isin(atomIds)].copy() 
-        a1 = selection.join(coordinates, on='Atom1')[['x','y','z']]
-        a2 = selection.join(coordinates, on='Atom2')[['x','y','z']]
-        a3 = selection.join(coordinates, on='Atom3')[['x','y','z']]
-        #print(self.topology.angles.loc[self.topology.angles['Atom3']==3])
+        a1 = selection.join(coordinates, on='atom1')[['x','y','z']]
+        a2 = selection.join(coordinates, on='atom2')[['x','y','z']]
+        a3 = selection.join(coordinates, on='atom3')[['x','y','z']]
+        #print(self.topology.angles.loc[self.topology.angles['atom3']==3])
         #print("angleLength: " , a1,"\n",a2,"\n",a3)
         
         #vectores de ambos lados 
@@ -1776,91 +1971,6 @@ class LammpsData():
         #return bondTable.copy().append(angleTable).reset_index(drop=True)
      '''
 _AVOGRADRO_CONSTANT_ = 6.02214129e+23
-
-
-# ===========================================
-class Box(Region):
-    '''
-        Defines a box with rectangular anlges (similar to block in LAMMPS)
-    '''
-    def __init__(self, cid=1, maxsMins=None):
-        '''        
-            maxsMins = (xmin, xmax, ymin, ymax, zmin, zmax) or None
-        '''
-        super(Box, self).setId(cid)
-    
-        self.setMinsMaxs(maxsMins)
-    
-    def getMaxsMins(self): return self.maxsMins
-    
-    def getCenter(self):
-        cellBasisVectors = self.getCellBasisVectors()
-        x = (cellBasisVectors[0][0]+cellBasisVectors[1][0]+cellBasisVectors[2][0])/2
-        y = (cellBasisVectors[0][1]+cellBasisVectors[1][1]+cellBasisVectors[2][1])/2
-        z = (cellBasisVectors[0][2]+cellBasisVectors[1][2]+cellBasisVectors[2][2])/2
-        return [x,y,z]
-
-    def getFaces(self):
-        cellBasisVectors = self.getCellBasisVectors()
-        left = self.cellOrigin[0]
-        right = left + cellBasisVectors[0][0]
-        bottom = self.cellOrigin[1]
-        top = bottom + cellBasisVectors[1][1]
-        zNear = self.cellOrigin[2]
-        zFar = zNear + cellBasisVectors[2][2]
-            
-        return [left, right, bottom, top, zNear, zFar]
-
-    def lammpsCommand(self):
-        return "region {:d} style block {}".format(self.id, ' '.join(self.maxsMins))
-    
-    def setFromNAMD(self, charmm):
-        ''' Extracts info from NAMD.data.PBC object thet is assumed to represent a box
-
-        Parameter
-        -----------------
-        charmm : NAMDdata
-            NAMDdata object
-        '''
-        
-        try:
-            self.setMinsMaxs([charmm.pbc.cellOrigin[0],
-                              charmm.pbc.cellBasisVector1[0] + charmm.pbc.cellOrigin[0],
-                              charmm.pbc.cellOrigin[1],
-                              charmm.pbc.cellBasisVector2[1] + charmm.pbc.cellOrigin[1],
-                              charmm.pbc.cellOrigin[2],
-                              charmm.pbc.cellBasisVector3[2] + charmm.pbc.cellOrigin[2]
-                              ])
-        except: 
-            self.setMinsMaxs(None)
-
-    def loadFromDump(self, filename):
-        ''' Extracts info from LAMMPS dump file that is assumed to represent a box
-
-        Parameter
-        -----------------
-        filename : LAMMPS dump file
-        '''
-        dump = open(filename, "r")
-        for linea in dump:
-            if linea[:26] == "ITEM: BOX BOUNDS pp pp pp":
-                mismaxsstr = linea.readline().split(' ').append(
-                        linea.readline().split(' ')).append(
-                        linea.readline().split(' '))
-                self.setMinsMaxs([float(x) for x in mismaxsstr])
-                break
-        dump.close()
-
-    def setMinsMaxs(self, maxsMins):
-        self.maxsMins = maxsMins
-        
-    def volume(self):
-            '''
-            volume
-            '''
-            return (self.maxsMins[1]-self.maxsMins[0]) * \
-                (self.maxsMins[3]-self.maxsMins[2]) * \
-                (self.maxsMins[5]-self.maxsMins[4])
 
 
 
