@@ -1652,7 +1652,7 @@ class LammpsData():
 
         @param: mix a Wolffia Mixture object.
         '''
-
+        from  granules.structure.NAMDdata import NAMDdata
         charmm = NAMDdata()
         charmm.loadWolffia(wolffia)
         self.loadNAMDdata(charmm)

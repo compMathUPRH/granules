@@ -818,7 +818,10 @@ class NAMDdata:
         wolffia.writeFiles(filesSufix)
         wolffia.writeFiles("namdTempFile")
 
-        self.readFiles(filesSufix + ".pdb", filesSufix + ".psf", filesSufix + ".prm", filesSufix + ".xsc")
+        if wolffia.hasBox():
+            self.readFiles(filesSufix + ".pdb", filesSufix + ".psf", filesSufix + ".prm", filesSufix + ".xsc")
+        else:
+            self.readFiles(filesSufix + ".pdb", filesSufix + ".psf", filesSufix + ".prm")
 
         tdir.cleanup()
 
