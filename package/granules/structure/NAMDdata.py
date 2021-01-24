@@ -784,8 +784,18 @@ class NAMDdata:
         if files:
             self.readFiles(*files)
     
-    def readFiles(self, *files):
+    def readFiles(self, *files, progressTitle=None):
+        from wolffialib.io.PrintBar import PrintBar
        
+        progressCount = 0
+        if progressTitle != None:    
+            progress = PrintBar(0, 4)
+            progress.setLabelText(progressTitle+", reading files")
+            progress.setRange(0,len(files))
+            progress.setValue(0)
+        else:
+            progress = None
+
         if len(files) == 0:
             raise NAMDdataEsception("no files given to readFiles function")
         elif len(files) > 4:
@@ -802,9 +812,12 @@ class NAMDdata:
                     self.pbc.readFile(f)
                 else: 
                     print("file:" + f + "does not have pdb, psf or prm as an extension")
+            progressCount += 1
+            if progress != None:    progress.setValue(progressCount)
+        if progress != None: progress.close()
 
 
-    def loadWolffia(self, wolffia):
+    def loadWolffia(self, wolffia, progressTitle=None):
         '''
         Converts a Wolffia mixture to a NAMDData self object.
 
@@ -815,13 +828,14 @@ class NAMDdata:
         #print("NAMDdata.loadWolffia() writing files...")
         tdir = tempfile.TemporaryDirectory(suffix="granules_")
         filesSufix = tdir.name + "/namdTempFile"
-        wolffia.writeFiles(filesSufix)
-        wolffia.writeFiles("namdTempFile")
+        wolffia.writeFiles(filesSufix, progressTitle=progressTitle)
+        #wolffia.writeFiles("namdTempFile")
 
+        #print("NAMDdata.loadWolffia() reading files...")
         if wolffia.hasBox():
-            self.readFiles(filesSufix + ".pdb", filesSufix + ".psf", filesSufix + ".prm", filesSufix + ".xsc")
+            self.readFiles(filesSufix + ".pdb", filesSufix + ".psf", filesSufix + ".prm", filesSufix + ".xsc", progressTitle=progressTitle)
         else:
-            self.readFiles(filesSufix + ".pdb", filesSufix + ".psf", filesSufix + ".prm")
+            self.readFiles(filesSufix + ".pdb", filesSufix + ".psf", filesSufix + ".prm", progressTitle=progressTitle)
 
         tdir.cleanup()
 

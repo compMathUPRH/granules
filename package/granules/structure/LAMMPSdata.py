@@ -167,44 +167,6 @@ class LammpsDataFrame(pd.DataFrame):
         print("CUIDADO: Llegó a LammpsDataFrame.add(). Esta tiene que ser sustituida.")
         raise Exception("CUIDADO: Llegó a LammpsDataFrame.add(). Esta tiene que ser sustituida.")
         
-    def append2(self, data):
-        '''
-        This method probably isn't necessary. Should be removed.
-        '''
-        
-        print("CUIDADO: Llegó a LammpsDataFrame.append(). Eso no debería pasar.")
-        raise Exception("CUIDADO: Llegó a LammpsDataFrame.append(). Esta tiene que ser sustituida.")
-        
-        #Almacenar numeros de columnas
-        columns = list(self.columns)  
-        
-        #Separar la data para almacenar en diccionario
-        dtable = {col:[] for col in columns}
-        
-        #Rellenar lista de listas con valor nulo '0' de ser necesario
-        print("LammpsDataFrame.append.data{}\n{}".format(type(data),data))
-        dif = len(self.columns) - len(data.columns)
-        if dif > 0: 
-            for i in range(len(data)): 
-                for j in range(dif):
-                    data[i].append('0')
-        
-        for d in data:
-            for col in columns:
-                try:dtable[col].append(self[col].dtype.type(d.pop(0)))
-                except KeyError:dtable[col].append(float(d.pop(0)))
-
-        #Crear dataframe con toda la informacion
-        fr = pd.DataFrame(dtable, copy=False, columns=columns)
-       
-        #Ajustar indices para que no comiencen en 0
-        fr.index = np.arange(1, len(fr) + 1)
-       
-        #Reescribir DataFrame original con creado
-        if self.empty:
-            super().__init__(data=fr)
-        else:
-            super().__init__(data=self.append(fr, ignore_index=True))
 
 
 #===================================================================
@@ -333,14 +295,6 @@ class AtomsFull:
             column_names = ['aType', 'Mass']
             super(AtomsFull.MassesDF,self).__init__(*args, **dict(kwargs, columns=column_names))
         
-        """
-        @property
-        def _constructor(self):
-            '''In absence of this method many operations would return a DataFrame, not an AtomDF
-            '''
-            return AtomsFull.MassesDF
-        """
-        
         def setFromNAMD(self, psf_atoms, atoms):
             ''' Extracts info from ATOMS object of a PSF object into self.
     
@@ -366,12 +320,6 @@ class AtomsFull:
             self.__init__(sel)
 
     
- 
-        def __getitem__(self, key):
-            ''' Selecting columns no longer produces MassesDF. It will return a
-            DataFrame or Slice'''
-            return pd.DataFrame(data=self)[key]
-
    
     class VelocitiesDF(LammpsDataFrame):
         ''' This subclass of pd.DataFrame will always have the columns specified
@@ -381,18 +329,6 @@ class AtomsFull:
             column_names = ['vID', 'Vx', 'Vy', 'Vz']
             super(AtomsFull.VelocitiesDF,self).__init__(*args, **dict(kwargs, columns=column_names))
 
-        """
-        @property
-        def _constructor(self):
-            '''In absence of this method many operations would return a DataFrame, not an AtomDF
-            '''
-            return AtomsFull.VelocitiesDF
-
-        def __getitem__(self, key):
-            ''' Selecting columns no longer produces an VelocitiesDF. It will return a
-            DataFrame or Slice'''
-            return pd.DataFrame(data=self)[key]
-        """
 
         def setToZero(self, atoms):
             ''' Sets velocities of atoms to zero.
@@ -415,11 +351,6 @@ class AtomsFull:
             self.__init__(sel)
 
  
-        def __getitem__(self, key):
-            ''' Selecting columns no longer produces VelocitiesDF. It will return a
-            DataFrame or Slice'''
-            return pd.DataFrame(data=self)[key]
-
  
 class MolecularTopologyData:
     def __init__(self):
@@ -448,19 +379,6 @@ class MolecularTopologyData:
             column_names = ['anID', 'anType', 'atom1', 'atom2', 'atom3']
             super(MolecularTopologyData.AnglesDF,self).__init__(*args, **dict(kwargs, columns=column_names))
 
-        """
-        @property
-        def _constructor(self):
-            '''In absence of this method many operations would return a DataFrame, not an AtomDF
-            '''
-            return MolecularTopologyData.AnglesDF
-
-    
-        def __getitem__(self, key):
-            ''' Selecting columns no longer produces an AnglesDF. It will return a
-            DataFrame or Slice'''
-            return pd.DataFrame(data=self)[key]
-        """
 
         def setFromNAMD(self, charmm):
             ''' Extracts info from ATOMS object of a PSF object into self.
@@ -568,12 +486,6 @@ class MolecularTopologyData:
             column_names = ['dID', 'dType', 'atom1', 'atom2', 'atom3', 'atom4']
             super(MolecularTopologyData.DihedralsDF,self).__init__(*args, **dict(kwargs, columns=column_names))
 
-        """
-        def __init__(self,data=None, dtype=None, copy=False):
-            dtypes = {'dID':[0], 'dType':[0], 'atom1':[0], 'atom2':[0], 'atom3':[0], 'atom4':[0]}
-            super(MolecularTopologyData.DihedralsDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
-            super(MolecularTopologyData.DihedralsDF, self).__init__(self.drop([0]))
-        """
         
         def setFromNAMD(self, charmm):
             ''' Extracts info from ATOMS object of a PSF object into self.
@@ -632,12 +544,6 @@ class MolecularTopologyData:
             column_names = ['iID', 'iType', 'atom1', 'atom2', 'atom3', 'atom4']
             super(MolecularTopologyData.ImpropersDF,self).__init__(*args, **dict(kwargs, columns=column_names))
 
-        """
-        def __init__(self,data=None, dtype=None, copy=False):
-            dtypes = {'iID':[0], 'iType':[0], 'atom1':[0], 'atom2':[0], 'atom3':[0], 'atom4':[0]}
-            super(MolecularTopologyData.ImpropersDF, self).__init__(data=dtypes, copy=copy, columns=dtypes.keys())
-            super(MolecularTopologyData.ImpropersDF, self).__init__(self.drop([0]))
-        """
         
         def setFromNAMD(self, charmm):
             ''' Extracts info from ATOMS object of a PSF object into self.
@@ -1133,7 +1039,7 @@ class CharmmForceField:
 
      class PairCoeffs(LammpsDataFrame):
          def __init__(self,data=None, dtype=None, copy=False):
-            super(CharmmForceField.PairCoeffs, self).__init__(data=data, columns=['aType','aType2', 'epsilon', 'sigma', 'epsilon1_4', 'sigma1_4'], dtype=dtype, copy=copy)
+            super(CharmmForceField.PairCoeffs, self).__init__(data=data, columns=['aType1','aType2', 'epsilon', 'sigma', 'epsilon1_4', 'sigma1_4'], dtype=dtype, copy=copy)
     
          def setFromNAMD(self, charmm, atoms):
             ''' Extracts info from PRM and PSF objects into self.
@@ -1146,7 +1052,8 @@ class CharmmForceField:
             mass : MassDF
                 AtomsDF object associateed with these PairCoeffs
             '''
-    
+            from itertools import product
+
             # extract info from charmm
             psf_types   = charmm.psf.atoms[['ID', 'Type']].set_index('ID').to_dict()['Type']
             #print("PairCoeffs psf_types ", psf_types)
@@ -1170,17 +1077,38 @@ class CharmmForceField:
             nonbonded['sigma1_4'] = nonbonded.types.map(prmFF.Rmin2.to_dict())
             nonbonded.drop(columns=['types'], inplace=True)
             
-            nonbonded.rename(columns={'aID':'aType'}, inplace=True)
-            #Columna nueva para el Lennard-Jones y reorganizacion columna
-            #print("PairCoeffs Antes:\n",nonbonded)
-            nonbonded['aType2'] = nonbonded['aType']
-            nonbonded = nonbonded[['aType','aType2', 'epsilon','sigma', 'epsilon1_4', 'sigma1_4']]
+            nonbonded = nonbonded[['aType', 'epsilon','sigma', 'epsilon1_4', 'sigma1_4']].set_index('aType', drop=True)
             #print("PairCoeffs aqui el nonbonded, la tabla:\n",nonbonded)
-    
-            super(CharmmForceField.PairCoeffs, self).__init__(nonbonded)
+            
+            # generate all pairs
+            pairs = pd.Series([i for i in product(nonbonded.index, repeat=2) if i[0] <= i[1]])
+            pairs = pd.concat([pairs.apply(lambda x: x[0]), pairs.apply(lambda x: x[1])],1).rename(columns={0:'aType1', 1:'aType2'})
+            pairs['epsilon'] = -np.sqrt(pairs.aType1.map(nonbonded.epsilon) * pairs.aType2.map(nonbonded.epsilon))
+            pairs['epsilon1_4'] = -np.sqrt(pairs.aType1.map(nonbonded.epsilon1_4) * pairs.aType2.map(nonbonded.epsilon1_4))
+            pairs['sigma'] = (pairs.aType1.map(nonbonded.sigma) + pairs.aType2.map(nonbonded.sigma))/2
+            pairs['sigma1_4'] = (pairs.aType1.map(nonbonded.sigma1_4) + pairs.aType2.map(nonbonded.sigma1_4))/2
+            #print("\nPairCoeffs pairs:\n",pairs)
+            self.__init__(pairs)
             #print("\nPairCoeffs Nans:\n",nonbonded.isna().sum())
-            #print(self.dtypes)
-    
+            #print(self.dtypes
+
+         def dropPair(self, atomType1, atomType2):
+             ''' Removes the potential parameters for a pair (atomType1, atomType2).
+             '''
+             index_names = self[(self['aType1'] == atomType1) &   (self['aType2'] == atomType2)].index
+             self.drop(index_names, inplace = True) 
+
+         def setPair(self, atomType1, atomType2, epsilon, sigma, epsilon1_4, sigma1_4):
+             ''' sets the potential parameters for a pair (atomType1, atomType2).
+                 If the pair exist it will replace it.
+             '''
+             if atomType1 > atomType2: atomType1, atomType2 = atomType2, atomType1
+             
+             self.dropPair(atomType1, atomType2) 
+             self.__init__(
+                     self.append({'aType1':atomType1,'aType2':atomType2,'epsilon':epsilon,'sigma':sigma,'epsilon1_4':epsilon1_4,'sigma1_4':sigma1_4}, sort=False, ignore_index=True)
+                  )   
+
      class AngleCoeffs(LammpsDataFrame):
          def __init__(self,data=None, dtype=None, copy=False):
              super(CharmmForceField.AngleCoeffs, self).__init__(data =data, columns=['anType', 'Ktheta', 'Theta0', 'Kub', 'S0'], dtype=dtype, copy=copy)
@@ -1228,7 +1156,7 @@ class CharmmForceField:
     
             angles.rename(columns={'ID':'anType'}, inplace=True)
     
-            super(CharmmForceField.AngleCoeffs, self).__init__(angles)
+            self.__init__(angles)
             #print("\nAngleCoeffs Nans:\n",angles.isna().sum())
             #print("Nans:\n",self)
     
@@ -1251,33 +1179,36 @@ class CharmmForceField:
             '''
     
             # extract info from charmm
+            #print("\nBondCoeffs bondsPar:\n",bondsPar)
             psf_types   = charmm.psf.atoms[['ID', 'Type']].set_index('ID').to_dict()['Type']
-            #print(psf_types)
+            #print("\nBondCoeffs psf_types:\n",psf_types)
     
             # substitute atoms numbers with charmm atom types
             #bonds     = bondsPar.copy()
-            bonds     = bondsPar[['bID', 'atom1', 'atom2']]
+            bonds     = bondsPar[['bID', 'bType', 'atom1', 'atom2']]
             
             bonds.atom1 = bonds.atom1.map(psf_types)
             bonds.atom2 = bonds.atom2.map(psf_types)
             bonds['atuple'] = list(zip(bonds.atom1, bonds.atom2))
+            #print("\nBondCoeffs bonds:\n",bonds)
             bonds.drop(columns=['bID', 'atom1', 'atom2'], inplace=True)
             bonds.drop_duplicates(inplace=True)
             #print(bonds)
     
             prmFF = charmm.prm.bonds.getCoeffs()
+            #print("\nBondCoeffs prmFF:\n",prmFF)
     
     
             # add Kb and b0 to bonds
             bonds['Spring_Constant'] = bonds.atuple.map(prmFF.Kb.to_dict())
             bonds['Eq_Length'] = bonds.atuple.map(prmFF.b0.to_dict())
             bonds.drop(columns=['atuple'], inplace=True)
-            #print(bonds)
+            #print("\nBondCoeffs bonds:\n",bonds)
             #print("\nBondCoeffs Nans:\n",bonds.isna().sum())
     
-            bonds.rename(columns={'ID':'bType'}, inplace=True)
+            bonds.rename(columns={'bID':'bType'}, inplace=True)
     
-            super(CharmmForceField.BondCoeffs, self).__init__(bonds)
+            self.__init__(bonds)
             #print(self.dtypes)
     
     
@@ -1334,7 +1265,7 @@ class CharmmForceField:
             dihedrals.rename(columns={'ID':'dType'}, inplace=True)
             del dihedrals['Type']
             
-            super(CharmmForceField.DihedralCoeffs, self).__init__(dihedrals.astype({'Kchi':float, 'n':int, 'delta':int,'Weighting_Factor':float}))
+            self.__init__(dihedrals.astype({'Kchi':float, 'n':int, 'delta':int,'Weighting_Factor':float}))
     
     
      class ImproperCoeffs(LammpsDataFrame):
@@ -1387,7 +1318,7 @@ class CharmmForceField:
             impropers.rename(columns={'ID':'iType'}, inplace=True)
             del impropers['Type']
             
-            super(CharmmForceField.ImproperCoeffs, self).__init__(impropers)    
+            self.__init__(impropers)    
         	
 
 #=====================================================================
@@ -1646,22 +1577,34 @@ class LammpsData():
         self.improperCoeffs.setFromNAMD(charmm, self.impropers)
         '''
 
-    def loadWolffia(self, wolffia):
+    def loadWolffia(self, wolffia, progressTitle=None):
         '''
         Converts a WolffiaState to a LammpsData self object.
 
         @param: mix a Wolffia Mixture object.
         '''
         from  granules.structure.NAMDdata import NAMDdata
+        
         charmm = NAMDdata()
-        charmm.loadWolffia(wolffia)
+        print("LAMMPS.loadWolffia charmm.loadWolffia(wolffia)")
+        charmm.loadWolffia(wolffia, progressTitle=progressTitle)
+        print("LAMMPS.loadWolffia self.loadNAMDdata(charmm)")
         self.loadNAMDdata(charmm)
  
         return self
 
 
-    def writeConf(self, filename):
+    def writeConf(self, filename, progressTitle=None):
         import sys
+        from wolffialib.io.PrintBar import PrintBar
+              
+        if progressTitle != None:    
+            progress = PrintBar(0, 13)
+            progress.setLabelText(progressTitle+", writing conf")
+            progress.setRange(0,13)
+            progress.setValue(0)
+        else:
+            progress = None
 
         cfile = open(filename, "w")
 
@@ -1687,6 +1630,7 @@ class LammpsData():
         # Header
         cfile.write("LAMMPS Description\n\n")
         cfile.write(overview_section + box_section)
+        if progress != None:    progress.setValue(1)
 
 
         #Masses
@@ -1696,6 +1640,7 @@ class LammpsData():
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No atom mass values to write. Simulation unlikely to run with this file.")
+        if progress != None:    progress.setValue(2)
 
 
         #Pair Coeffs
@@ -1708,6 +1653,7 @@ class LammpsData():
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No Pair coefficients to write.\n")
+        if progress != None:    progress.setValue(3)
 
 
         #Bond Coeffs
@@ -1717,6 +1663,7 @@ class LammpsData():
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No bond coefficients to write.\n")
+        if progress != None:    progress.setValue(4)
 
 
         #Angle Coeffs
@@ -1726,6 +1673,7 @@ class LammpsData():
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No angle coefficients to write.\n")
+        if progress != None:    progress.setValue(5)
 
 
         #Dihedral Coeffs
@@ -1735,6 +1683,7 @@ class LammpsData():
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No dihedral coefficients to write.\n")
+        if progress != None:    progress.setValue(6)
 
 
         #Improper Coeffs
@@ -1744,6 +1693,7 @@ class LammpsData():
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No improper coefficients to write.\n")
+        if progress != None: progress.setValue(7)
 
 
         #Atoms
@@ -1751,6 +1701,7 @@ class LammpsData():
         #cfile.write(self.atomprop.atoms.to_string(index=False, columns=self.atomprop.atoms.columns, header=False))
         cfile.write(self.atomprop.atoms.to_string(index=False, columns=self.atomprop.atoms.columns, header=False))
         cfile.write("\n")
+        if progress != None: progress.setValue(8)
 
 
         #Velocities
@@ -1760,6 +1711,7 @@ class LammpsData():
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No velocities to write.\n")
+        if progress != None: progress.setValue(9)
 
 
         #Bonds
@@ -1769,8 +1721,8 @@ class LammpsData():
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No bonds to write.\n")
+        if progress != None: progress.setValue(10)
 
-        
         #Angles
         if len(self.topology.angles) > 0:
             cfile.write('\nAngles\n\n') 
@@ -1778,6 +1730,7 @@ class LammpsData():
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No angles to write.\n")
+        if progress != None: progress.setValue(11)
 
 
         #Dihedrals
@@ -1787,6 +1740,7 @@ class LammpsData():
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No dihedrals to write.\n")
+        if progress != None: progress.setValue(12)
 
 
         #Impropers
@@ -1796,6 +1750,9 @@ class LammpsData():
             cfile.write("\n")
         else:
             sys.stderr.write("WARNING: No impropers to write.\n")
+        if progress != None:
+            progress.setValue(13)
+            progress.close()
     
     
     def Force(self):
@@ -1917,6 +1874,7 @@ class LammpsData():
             atomIds = set(self.topology.angles.anID)        
         coordinates = self.atomprop.atoms[['aID', 'x', 'y', 'z']].set_index('aID')
         selection = self.topology.angles.loc[self.topology.angles['anID'].isin(atomIds)].copy() 
+        print("angleLength", type(selection))
         a1 = selection.join(coordinates, on='atom1')[['x','y','z']]
         a2 = selection.join(coordinates, on='atom2')[['x','y','z']]
         a3 = selection.join(coordinates, on='atom3')[['x','y','z']]
