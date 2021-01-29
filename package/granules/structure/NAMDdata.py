@@ -836,7 +836,15 @@ class NAMDdata:
             self.readFiles(filesSufix + ".pdb", filesSufix + ".psf", filesSufix + ".prm", filesSufix + ".xsc", progressTitle=progressTitle)
         else:
             self.readFiles(filesSufix + ".pdb", filesSufix + ".psf", filesSufix + ".prm", progressTitle=progressTitle)
-
+        
+        # make a molecule index
+        wolffia.mixture.setAtomOrder()
+        molecules  = [pair[0] for pair in wolffia.mixture.atomOrder]
+        #atomIDs  = [pair[1] for pair in wolffia.mixture.atomOrder]
+        atomIDs  = range(1,len(molecules)+1)
+        self.atomsInMolecules = pd.DataFrame({'ID':atomIDs, 'molname':molecules})
+            
+            
         tdir.cleanup()
 
         return self
