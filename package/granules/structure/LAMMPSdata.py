@@ -204,6 +204,14 @@ class AtomsFull:
             column_names = ['aID', 'Mol_ID', 'aType', 'Q', 'x', 'y', 'z', 'Nx', 'Ny', 'Nz']
             super(AtomsFull.AtomsDF,self).__init__(*args, **dict(kwargs, columns=column_names))
 
+            #print("AtomsDF len(args) ", len(args), kwargs.keys())
+            #if len(args) > 0: print("AtomsDF type(args[0])=", type(args[0]))
+            if not hasattr(self, "atomTypes"): 
+                self.atomTypes = {}
+            if len(args) > 0 and type(args[0]) == type(self):
+                self.atomTypes = args[0].atomTypes
+                
+
         def setFromNAMD(self, charmm):
             ''' Extracts info from ATOMS object of a PSF object into self.
     
@@ -225,14 +233,20 @@ class AtomsFull:
             sel         .rename(columns={"Charge":"Q",'ID':'aID'}, inplace=True)
     
             # add remining columns
-            sel['Mol_ID'] = np.ones((len(sel), 1), dtype=np.int8)
+            if hasattr(charmm, 'atomsPerMolecules'):
+                self.moleculeTypes = {v:k+1 for k,v in enumerate(set(charmm.atomsPerMolecules.molname))}
+                sel = sel.join(charmm.atomsPerMolecules.set_index('ID'), on='aID')
+                sel['Mol_ID'] = sel['molname'].map(self.moleculeTypes)
+            else:
+                sel['Mol_ID'] = np.ones((len(sel), 1), dtype=np.int8)
             sel['Nx']     = np.zeros((len(sel), 1))
             sel['Ny']     = np.zeros((len(sel), 1))
             sel['Nz']     = np.zeros((len(sel), 1))
-            sel['ID']     = np.arange(1, len(sel)+1)
+            #sel['ID']     = np.arange(1, len(sel)+1)
 
             # rearrange columns
             sel = sel[['aID', 'Mol_ID', 'aType', 'Q', 'x', 'y', 'z', 'Nx', 'Ny', 'Nz']]
+            print(sel)
             
             #sel.reset_index(inplace=True)
             self.__init__(sel)
@@ -248,6 +262,7 @@ class AtomsFull:
                          'Ny' :int,
                          'Nz' : int
                         })
+            self.atomTypes = {v: k for k, v in charmmTypeToInt.items()}
        
         def center(self):
             return self[['x', 'y', 'z']].mean()
@@ -1633,6 +1648,8 @@ class LammpsData():
         if progress != None:    progress.setValue(1)
 
 
+        # index of atom type numbers
+        
         #Masses
         if len(self.atomprop.masses) > 0:
             cfile.write('\nMasses\n\n')
