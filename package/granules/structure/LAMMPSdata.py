@@ -208,9 +208,13 @@ class AtomsFull:
             #if len(args) > 0: print("AtomsDF type(args[0])=", type(args[0]))
             if not hasattr(self, "atomTypes"): 
                 self.atomTypes = {}
+                
+            if not hasattr(self, "moleculeTypes"): 
+                self.moleculeTypes = {}
+
             if len(args) > 0 and type(args[0]) == type(self):
                 self.atomTypes = args[0].atomTypes
-                
+                self.moleculeTypes = args[0].moleculeTypes
 
         def setFromNAMD(self, charmm):
             ''' Extracts info from ATOMS object of a PSF object into self.
@@ -233,9 +237,9 @@ class AtomsFull:
             sel         .rename(columns={"Charge":"Q",'ID':'aID'}, inplace=True)
     
             # add remining columns
-            if hasattr(charmm, 'atomsPerMolecules'):
-                self.moleculeTypes = {v:k+1 for k,v in enumerate(set(charmm.atomsPerMolecules.molname))}
-                sel = sel.join(charmm.atomsPerMolecules.set_index('ID'), on='aID')
+            if hasattr(charmm, 'atomsInMolecules'):
+                self.moleculeTypes = {v:k+1 for k,v in enumerate(set(charmm.atomsInMolecules.molname))}
+                sel = sel.join(charmm.atomsInMolecules.set_index('ID'), on='aID')
                 sel['Mol_ID'] = sel['molname'].map(self.moleculeTypes)
             else:
                 sel['Mol_ID'] = np.ones((len(sel), 1), dtype=np.int8)
@@ -246,7 +250,6 @@ class AtomsFull:
 
             # rearrange columns
             sel = sel[['aID', 'Mol_ID', 'aType', 'Q', 'x', 'y', 'z', 'Nx', 'Ny', 'Nz']]
-            print(sel)
             
             #sel.reset_index(inplace=True)
             self.__init__(sel)
@@ -1648,8 +1651,21 @@ class LammpsData():
         if progress != None:    progress.setValue(1)
 
 
-        # index of atom type numbers
-        
+        # Molecule ID index
+        if len(self.atomprop.atoms.moleculeTypes) > 0:
+            cfile.write('\n# Molecule ID index\n#\n')
+            for mID in self.atomprop.atoms.moleculeTypes:
+                cfile.write("#{:10d}  {}\n".format(self.atomprop.atoms.moleculeTypes[mID],mID))
+            cfile.write("\n")
+
+
+        # Atom types index
+        if len(self.atomprop.atoms.atomTypes) > 0:
+            cfile.write('\n# Atom types index\n#\n')
+            for mID in self.atomprop.atoms.atomTypes:
+                cfile.write("#{:10d}  {}\n".format(mID, self.atomprop.atoms.atomTypes[mID]))
+            cfile.write("\n")
+
         #Masses
         if len(self.atomprop.masses) > 0:
             cfile.write('\nMasses\n\n')
@@ -1660,9 +1676,9 @@ class LammpsData():
         if progress != None:    progress.setValue(2)
 
 
-        #Pair Coeffs
+        #PairIJ Coeffs
         if len(self.forceField.pairCoeffs) > 0:
-            cfile.write('\nPair Coeffs\n\n')
+            cfile.write('\nPairIJ Coeffs\n\n')
             #print("Pair Coeffs:", self.pairCoeffs.columns)
             #[cfile.write('{:>3d}{:>12}{:>12}{:>12}{:>12}\n'.format(row['ID'], row['Charge'], row['Energy'],
             # row['Charge'], row['Energy'])) for index, row in self['Pair Coeffs'].iterrows()]
